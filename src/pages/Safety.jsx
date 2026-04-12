@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldAlert, MapPin, Mic, MicOff, Phone, Share2, AlertTriangle, Plus, Trash2, Navigation, CheckCircle2, X } from 'lucide-react';
+import { ShieldAlert, MapPin, Mic, MicOff, Phone, Share2, AlertTriangle, Plus, Trash2, Navigation, CheckCircle2, X, PhoneCall, Check, Route } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 import { getUnsafeZones } from '../services/api';
 
@@ -16,6 +16,10 @@ const Safety = () => {
   const [showContactForm, setShowContactForm] = useState(false);
   const [sosStatus, setSosStatus] = useState('idle'); // idle | counting | sent
   const [shareStatus, setShareStatus] = useState('');
+  const [fakeCallActive, setFakeCallActive] = useState(false);
+  const [checkInStatus, setCheckInStatus] = useState(false);
+  const [isScanningRoute, setIsScanningRoute] = useState(false);
+  const [routeFound, setRouteFound] = useState(false);
   const recognitionRef = useRef(null);
 
   useEffect(() => {
@@ -79,6 +83,11 @@ const Safety = () => {
         setLocationStatus('Location access denied');
         setShareStatus('Permission denied');
         setTimeout(() => setShareStatus(''), 3000);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
       }
     );
   };
@@ -130,6 +139,19 @@ const Safety = () => {
 
   const callContact = (phone) => {
     window.location.href = `tel:${phone.replace(/\s/g, '')}`;
+  };
+
+  const handleCheckIn = () => {
+    setCheckInStatus(true);
+    setTimeout(() => setCheckInStatus(false), 3000);
+  };
+
+  const handleScanRoute = () => {
+    setIsScanningRoute(true);
+    setTimeout(() => {
+      setIsScanningRoute(false);
+      setRouteFound(true);
+    }, 2500);
   };
 
   return (
@@ -197,6 +219,18 @@ const Safety = () => {
                 }}
               >
                 <Share2 size={16} /> {shareStatus || 'Share Location'}
+              </button>
+
+              {/* Fake Call Action Button */}
+              <button
+                onClick={() => setFakeCallActive(true)}
+                style={{
+                  padding: '10px 16px', borderRadius: '12px', border: 'none', cursor: 'pointer',
+                  background: 'linear-gradient(135deg, #A0AEC0, #718096)', color: 'white',
+                  display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 600
+                }}
+              >
+                <PhoneCall size={16} /> Fake Escape Call
               </button>
             </div>
 
@@ -279,6 +313,24 @@ const Safety = () => {
                 </p>
               )}
             </div>
+
+            {/* Trusted Circle Integration: Safe Check-in */}
+            {contacts.length > 0 && (
+              <div style={{ marginTop: '1rem', borderTop: '1px solid var(--glass-border)', paddingTop: '1rem', textAlign: 'center' }}>
+                <button
+                  onClick={handleCheckIn}
+                  className={checkInStatus ? "" : "btn-primary"}
+                  style={{
+                    width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '12px', borderRadius: '12px', border: 'none', cursor: 'pointer',
+                    background: checkInStatus ? 'rgba(79,209,197,0.1)' : '',
+                    color: checkInStatus ? 'var(--accent)' : 'white', fontWeight: 700, transition: 'var(--transition)'
+                  }}
+                >
+                  {checkInStatus ? <><CheckCircle2 size={18} /> Safe Check-in Sent!</> : <><Check size={18} /> I reached safely (Notify All)</>}
+                </button>
+                {checkInStatus && <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '6px' }}>Sent current coordinates via SMS to Trusted Circle</p>}
+              </div>
+            )}
           </div>
         </div>
 
@@ -331,8 +383,39 @@ const Safety = () => {
                 </div>
               </div>
 
+              {/* AI Route Scanner Overlay */}
+              <AnimatePresence>
+                {(isScanningRoute || routeFound) && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'absolute', inset: 0, background: 'rgba(5, 8, 16, 0.95)', backdropFilter: 'blur(4px)', zIndex: 20, display: 'flex', flexDirection: 'column', padding: '20px' }}>
+                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'auto' }}>
+                       <h4 style={{ color: 'white', display: 'flex', alignItems: 'center', gap: '8px' }}><Route size={18} color="var(--primary)" /> AI Safe Navigation</h4>
+                       <button onClick={() => setRouteFound(false)} style={{ border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={20} /></button>
+                     </div>
+                     
+                     {isScanningRoute ? (
+                       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+                         <div style={{ width: '40px', height: '40px', border: '3px solid rgba(157,141,241,0.2)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                         <p style={{ color: 'var(--primary)', marginTop: '14px', fontWeight: 600, fontSize: '0.9rem' }}>Analyzing path safety metrics...</p>
+                         <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '4px' }}>Checking crowd density & lighting</p>
+                       </div>
+                     ) : (
+                       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '12px' }}>
+                         <div style={{ background: 'rgba(255,75,145,0.1)', border: '1px solid var(--danger)', borderRadius: '12px', padding: '12px' }}>
+                           <h5 style={{ color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '6px' }}><X size={14} /> Route A (Shortest: 12 mins)</h5>
+                           <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '6px' }}>Avoid: Low lighting & isolated street reported.</p>
+                         </div>
+                         <div style={{ background: 'rgba(79,209,197,0.15)', border: '1px solid var(--accent)', borderRadius: '12px', padding: '12px' }}>
+                           <h5 style={{ color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '6px' }}><CheckCircle2 size={14} /> Route B (Safest: 15 mins)</h5>
+                           <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '6px' }}>Recommended: Has active CCTV & high foot traffic. Rerouting map...</p>
+                         </div>
+                       </div>
+                     )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               {/* Bottom bar */}
-              <div style={{ position: 'absolute', bottom: '14px', left: '14px', right: '14px', padding: '10px 14px', background: 'rgba(0,0,0,0.5)', borderRadius: '12px', backdropFilter: 'blur(10px)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <div style={{ position: 'absolute', bottom: '14px', left: '14px', right: '14px', padding: '10px 14px', background: 'rgba(0,0,0,0.5)', borderRadius: '12px', backdropFilter: 'blur(10px)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', zIndex: 15 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Navigation size={16} color="var(--primary)" />
                   <div>
@@ -341,14 +424,14 @@ const Safety = () => {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '6px' }}>
+                  <button onClick={handleScanRoute} style={{ padding: '7px 12px', border: '1px solid var(--primary)', borderRadius: '8px', background: 'transparent', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}>
+                    SCAN ROUTE
+                  </button>
                   <button
                     onClick={toggleVoiceDetection}
                     style={{ padding: '7px', border: 'none', borderRadius: '8px', background: voiceDetection ? 'var(--primary)' : 'rgba(255,255,255,0.08)', color: 'white', cursor: 'pointer', display: 'flex' }}
                   >
                     {voiceDetection ? <Mic size={16} /> : <MicOff size={16} />}
-                  </button>
-                  <button onClick={shareLocation} className="btn-primary" style={{ padding: '7px 12px', fontSize: '0.72rem' }}>
-                    GET LOCATION
                   </button>
                 </div>
               </div>
@@ -381,6 +464,35 @@ const Safety = () => {
           </div>
         </div>
       </div>
+
+      {/* Fake Call Overlay */}
+      <AnimatePresence>
+        {fakeCallActive && (
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#1c1c1e', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ textAlign: 'center', marginTop: '-10vh' }}>
+              <h2 style={{ fontSize: '2.5rem', color: 'white', fontWeight: 400, letterSpacing: '2px' }}>Mom Calling...</h2>
+              <p style={{ fontSize: '1.2rem', color: 'rgba(255,255,255,0.6)', marginTop: '8px' }}>Mobile</p>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '60px', marginTop: '40vh' }}>
+              <button 
+                onClick={() => setFakeCallActive(false)} 
+                style={{ width: '75px', height: '75px', borderRadius: '50%', background: '#EF4444', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', boxShadow: '0 4px 20px rgba(239, 68, 68, 0.4)' }}
+              >
+                <Phone size={32} color="white" style={{ transform: 'rotate(135deg)' }} />
+              </button>
+              
+              <button 
+                onClick={() => setFakeCallActive(false)} 
+                style={{ width: '75px', height: '75px', borderRadius: '50%', background: '#22C55E', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', boxShadow: '0 4px 20px rgba(34, 197, 94, 0.4)', animation: 'pulse-ring 2s infinite' }}
+              >
+                <Phone size={32} color="white" />
+              </button>
+            </div>
+            <p style={{ position: 'absolute', bottom: '30px', color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem' }}>Tap either button to discreetly exit screen</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };

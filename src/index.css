@@ -19,6 +19,20 @@
   --header-height: 70px;
 }
 
+[data-theme="light"] {
+  --bg-deep: #F7FAFC;
+  --bg-card: rgba(255, 255, 255, 0.85);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-highlight: rgba(0, 0, 0, 0.15);
+  --primary: #7E6EE0;
+  --primary-glow: rgba(126, 110, 224, 0.2);
+  --accent: #319795;
+  --danger: #E53E3E;
+  --danger-glow: rgba(229, 62, 62, 0.2);
+  --text-main: #2D3748;
+  --text-muted: #718096;
+}
+
 * {
   margin: 0;
   padding: 0;

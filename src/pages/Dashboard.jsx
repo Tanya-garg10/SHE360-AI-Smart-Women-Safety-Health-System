@@ -59,13 +59,13 @@ const Dashboard = () => {
     }));
   })();
 
-  const aiInsight = lastMood?.label === 'Cloudy'
-    ? '💜 You logged feeling cloudy. Try a 5-min breathing exercise — it really helps!'
+  const aiTip = lastMood?.label === 'Cloudy'
+    ? '💡 Daily Tip: Your mood is Cloudy. Try a quick 5-min guided meditation to relieve stress. Remember, it\'s okay to pause.'
     : lastMood?.label === 'Sunny'
-    ? '🌟 You\'re feeling great today! This is a perfect time to tackle an important task.'
-    : healthReports.length > 0
-    ? `📋 Your last PCOS assessment showed ${lastReport?.result?.risk_level} risk. ${lastReport?.result?.recommendation}`
-    : '👋 Welcome to SHE360 AI! Start by adding emergency contacts in the Safety Hub, then complete your first health assessment.';
+    ? '💡 Daily Tip: You\'re feeling Sunny! Capitalize on this energy to tackle your hardest tasks today.'
+    : healthReports.length > 0 && lastReport?.result?.risk_level === 'High'
+    ? `💡 Daily Tip: Your last health scan showed High risk. Please prioritize resting today and consult a doctor.`
+    : '💡 Daily Tip: Drink 2 liters of water today and remember to log your mood later tonight for personalized insights.';
 
   return (
     <motion.div
@@ -172,13 +172,13 @@ const Dashboard = () => {
               <Zap size={20} color="var(--primary)" />
             </div>
             <div>
-              <h3 style={{ fontSize: '1rem' }}>AI Wellness Insight</h3>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Personalized for you</p>
+              <h3 style={{ fontSize: '1rem' }}>Daily AI Wellness Tip</h3>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Analyzed from your latest health & mood logs</p>
             </div>
           </div>
 
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: '1.7', flex: 1, padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '12px' }}>
-            {aiInsight}
+          <p style={{ color: 'var(--text-main)', fontSize: '0.9rem', lineHeight: '1.7', flex: 1, padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', borderLeft: '4px solid var(--primary)' }}>
+            {aiTip}
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
