@@ -6,7 +6,7 @@
 
 **SHE360 AI** is a highly interactive platform unified into a single dashboard. Built with a modern, fully responsive **Glassmorphism UI**, this application actively predicts risks, assists the user, and provides deep personalization to foster an environment of complete safety and holistic wellness.
 
-## 🌟 Pitch-Ready "WOW" Features
+## Smart Features
 We engineered this platform to not just look good, but to act as a truly smart companion in real-world scenarios:
 
 - 🎭 **Fake Escape Call:** A discreet button that instantly triggers a highly realistic full-screen "Incoming Call from Mom" UI to help users confidently escape uncomfortable situations without drawing suspicion.
