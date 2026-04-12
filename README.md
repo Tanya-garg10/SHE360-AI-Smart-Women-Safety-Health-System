@@ -76,5 +76,24 @@ We engineered this platform to not just look good, but to act as a truly smart c
 
 ---
 
+## 🔮 Future Improvements
+While the current MVP is fully functional and presentation-ready, the roadmap for future enhancements includes:
+- **Cloud Database Integration:** Migrating from `localStorage` to **MongoDB / PostgreSQL** for cross-device synchronization and long-term secure health data storage.
+- **Hardware Integration:** Syncing with **Smartwatches** (Apple Watch/Wear OS) for automatic Fall Detection and pulse-rate monitoring to trigger SOS.
+- **Real-Time Google Maps API:** Fully integrating the actual Google Maps API for true turn-by-turn safe route navigation rather than simulated UI.
+- **Push Notification Service:** Integrating Firebase Cloud Messaging (FCM) to send actual push notifications to trusted contacts in real-time.
+
+---
+
 ## 📝 Usage & Privacy Notes
 For pure ease-of-use and presentation fluidity, this project currently persists data (contacts, health reports, mood logs, Light/Dark theme preference) utilizing browser `localStorage`. This guarantees rapid load times, offline fallback reliability, and strict privacy protection on the local machine demo.
+
+---
+
+<div align="center">
+  <h3>Made with ❤️ for Women Empowerment & Safety</h3>
+  <p><b>Developed by Tanya Garg & Team</b></p>
+  
+  [![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-blue?style=flat&logo=linkedin)](https://www.linkedin.com/in/tanya-garg-5b08b5258/)
+  [![GitHub](https://img.shields.io/badge/GitHub-Follow-black?style=flat&logo=github)](https://github.com/Tanya-garg10)
+</div>
