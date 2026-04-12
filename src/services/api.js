@@ -1,0 +1,119 @@
+import axios from 'axios';
+
+const API_BASE_URL = 'http://localhost:8000';
+
+const api = axios.create({ baseURL: API_BASE_URL, timeout: 3000 });
+
+// ─── LOCAL FALLBACK LOGIC ───────────────────────────────────────────────────
+
+const localPCOS = (data) => {
+  let score = 0;
+  if (data.irregularPeriods) score += 40;
+  if (data.weightGain) score += 20;
+  if (data.hairGrowth) score += 20;
+  if (data.acne) score += 20;
+  if (data.cycleLength < 21 || data.cycleLength > 35) score += 10;
+  const risk_level = score > 50 ? 'High' : score > 30 ? 'Moderate' : 'Low';
+  return {
+    risk_score: Math.min(score, 100),
+    risk_level,
+    recommendation:
+      risk_level === 'High'
+        ? '⚠️ Please consult a gynecologist soon.'
+        : risk_level === 'Moderate'
+        ? '🔍 Monitor your cycle and maintain a balanced diet.'
+        : '✅ Your symptoms appear normal. Stay healthy!',
+  };
+};
+
+const localSentiment = (text) => {
+  const t = text.toLowerCase();
+  const positive = ['happy', 'good', 'great', 'fine', 'excited', 'wonderful', 'love', 'joy', 'amazing', 'fantastic', 'better', 'nice', 'smile', 'glad', 'thank', 'hopeful'];
+  const negative = ['sad', 'bad', 'upset', 'depressed', 'stressed', 'tired', 'angry', 'hate', 'scared', 'anxious', 'worry', 'pain', 'hurt', 'lonely', 'fear', 'overwhelm'];
+  const pos = positive.filter(w => t.includes(w)).length;
+  const neg = negative.filter(w => t.includes(w)).length;
+  const sentiment = pos > neg ? 'Positive' : neg > pos ? 'Negative' : 'Neutral';
+  return { sentiment, score: pos - neg };
+};
+
+const localUnsafeZones = () => [
+  { lat: 28.62, lng: 77.21, radius: 500, reason: 'High density / Low lighting' },
+  { lat: 28.65, lng: 77.24, radius: 300, reason: 'Crowded area precaution' },
+];
+
+// ─── EXPORTED API FUNCTIONS ─────────────────────────────────────────────────
+
+export const getPCOSPrediction = async (data) => {
+  try {
+    const res = await api.post('/predict/pcos', {
+      irregular_periods: data.irregularPeriods,
+      weight_gain: data.weightGain,
+      hair_growth: data.hairGrowth,
+      acne: data.acne,
+      cycle_length: parseInt(data.cycleLength),
+    });
+    return res.data;
+  } catch {
+    return localPCOS(data);
+  }
+};
+
+export const getSentiment = async (text) => {
+  try {
+    const res = await api.post('/nlp/sentiment', { text });
+    return res.data;
+  } catch {
+    return localSentiment(text);
+  }
+};
+
+export const getUnsafeZones = async () => {
+  try {
+    const res = await api.get('/safety/unsafe-zones');
+    return res.data;
+  } catch {
+    return localUnsafeZones();
+  }
+};
+
+export const getGroqChatResponse = async (chatHistory) => {
+  try {
+    const apiKey = import.meta.env.VITE_GROQ_API_KEY;
+    if (!apiKey) throw new Error("No Groq API Key found");
+
+    // Format messages for Groq API
+    const messages = chatHistory.map(m => ({
+      role: m.sender === 'ai' ? 'assistant' : 'user',
+      content: m.text
+    }));
+
+    // Add a system prompt at the beginning
+    messages.unshift({
+      role: 'system',
+      content: 'You are SHE360 Mindful Assistant, an empathetic, supportive, and kind AI companion designed for women\'s wellness. Act as a trusted friend, listen to their problems, and provide positive and caring advice. Keep your responses concise (2-3 sentences mostly) and use emojis appropriately. Never act cold or overly robotic.'
+    });
+
+    const res = await axios.post(
+      'https://api.groq.com/openai/v1/chat/completions',
+      {
+        model: 'llama-3.3-70b-versatile',
+        messages: messages,
+        temperature: 0.7,
+        max_tokens: 300,
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    return res.data.choices[0].message.content;
+  } catch (error) {
+    console.error("Groq API Error:", error);
+    return null;
+  }
+};
+
+export default api;
