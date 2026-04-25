@@ -36,6 +36,29 @@ const localSentiment = (text) => {
   return { sentiment, score: pos - neg };
 };
 
+const localChatFallback = (text) => {
+  const { sentiment } = localSentiment(text);
+  const AI_RESPONSES = {
+    Negative: [
+      "I hear that you're feeling a bit down. 💜 Remember, it's okay to have these moments. Would you like to try a quick 4-7-8 breathing exercise?",
+      "Thank you for sharing that with me. You're not alone in this. Would you like some grounding techniques to help right now?",
+      "It sounds tough. One step at a time is enough. I'm proud of you for reaching out. 🌸",
+    ],
+    Positive: [
+      "That's wonderful to hear! 🌟 Your positivity is contagious. What made today feel good?",
+      "So glad you're feeling this way! Celebrating these moments is so important. Keep going! 💫",
+      "Absolutely love this energy! You deserve every good thing that comes your way. ☀️",
+    ],
+    Neutral: [
+      "I'm listening. Tell me more — sometimes just talking it out helps clarity arrive. 🌿",
+      "A balanced day has its own beauty. Is there anything on your mind you'd like to explore?",
+      "Thank you for sharing. I'm here whenever you need to express more. How can I support you today?",
+    ],
+  };
+  const responses = AI_RESPONSES[sentiment] || AI_RESPONSES.Neutral;
+  return responses[Math.floor(Math.random() * responses.length)];
+};
+
 const localUnsafeZones = () => [
   { lat: 28.62, lng: 77.21, radius: 500, reason: 'High density / Low lighting' },
   { lat: 28.65, lng: 77.24, radius: 300, reason: 'Crowded area precaution' },
@@ -111,8 +134,9 @@ export const getGroqChatResponse = async (chatHistory) => {
 
     return res.data.choices[0].message.content;
   } catch (error) {
-    console.error("Groq API Error:", error);
-    return null;
+    console.error("Groq API Error/Missing Key. Using local fallback.");
+    const lastUserMsg = chatHistory[chatHistory.length - 1]?.text || "";
+    return localChatFallback(lastUserMsg);
   }
 };
 
