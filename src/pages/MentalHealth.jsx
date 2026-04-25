@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, Send, Smile, Meh, Frown, Sparkles, Brain, BarChart3, Trash2, Bot } from 'lucide-react';
+import { MessageSquare, Send, Smile, Meh, Frown, Sparkles, Brain, BarChart3, Trash2, Bot, Wind, Play, Square } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 import { getSentiment, getGroqChatResponse } from '../services/api';
 
@@ -24,8 +24,39 @@ const MentalHealth = () => {
   });
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [breathingActive, setBreathingActive] = useState(false);
+  const [breathPhase, setBreathPhase] = useState('Inhale'); // Inhale, Hold, Exhale
+  const [breathTimer, setBreathTimer] = useState(4);
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
+
+  // Breathing Exercise Logic
+  useEffect(() => {
+    let interval;
+    if (breathingActive) {
+      interval = setInterval(() => {
+        setBreathTimer(prev => {
+          if (prev > 1) return prev - 1;
+          
+          // Switch phase
+          if (breathPhase === 'Inhale') {
+            setBreathPhase('Hold');
+            return 7;
+          } else if (breathPhase === 'Hold') {
+            setBreathPhase('Exhale');
+            return 8;
+          } else {
+            setBreathPhase('Inhale');
+            return 4;
+          }
+        });
+      }, 1000);
+    } else {
+      setBreathPhase('Inhale');
+      setBreathTimer(4);
+    }
+    return () => clearInterval(interval);
+  }, [breathingActive, breathPhase]);
 
   useEffect(() => {
     localStorage.setItem('she360-chat', JSON.stringify(messages));
@@ -85,8 +116,57 @@ const MentalHealth = () => {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="page-container">
       <div className="grid-mind">
 
-        {/* ── Left: Mood Tracker + Chart ── */}
+        {/* ── Left: Breathing, Mood Tracker + Chart ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+
+          {/* 4-7-8 Breathing App */}
+          <div className="glass-card" style={{ padding: '1.5rem', textAlign: 'center', background: 'linear-gradient(135deg, rgba(157,141,241,0.08), rgba(79,209,197,0.08))', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', marginBottom: '1.5rem' }}>
+              <Wind size={20} color="var(--primary)" />
+              <h3 style={{ fontSize: '1.1rem' }}>4-7-8 Breathing</h3>
+            </div>
+            
+            <div style={{ position: 'relative', width: '160px', height: '160px', margin: '0 auto 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {/* Expanding Circle */}
+              <motion.div
+                animate={
+                  !breathingActive ? { scale: 1, opacity: 0.1 } :
+                  breathPhase === 'Inhale' ? { scale: 1.5, opacity: 0.3 } :
+                  breathPhase === 'Hold' ? { scale: 1.5, opacity: 0.4 } :
+                  { scale: 1, opacity: 0.1 }
+                }
+                transition={
+                  breathPhase === 'Inhale' ? { duration: 4, ease: "linear" } :
+                  breathPhase === 'Hold' ? { duration: 7, ease: "linear" } :
+                  breathPhase === 'Exhale' ? { duration: 8, ease: "linear" } :
+                  { duration: 0.5 }
+                }
+                style={{ position: 'absolute', width: '100px', height: '100px', borderRadius: '50%', background: 'var(--primary)' }}
+              />
+              
+              <div style={{ zIndex: 10, width: '100px', height: '100px', borderRadius: '50%', background: 'var(--bg-card)', border: '2px solid var(--primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 20px rgba(157,141,241,0.2)' }}>
+                {breathingActive ? (
+                  <>
+                    <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--primary)' }}>{breathPhase}</span>
+                    <span style={{ fontSize: '1.8rem', fontWeight: 900 }}>{breathTimer}</span>
+                  </>
+                ) : (
+                  <Wind size={32} color="var(--text-muted)" />
+                )}
+              </div>
+            </div>
+            
+            <button 
+              onClick={() => setBreathingActive(!breathingActive)}
+              className={breathingActive ? '' : 'btn-primary'}
+              style={{ width: '100%', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', borderRadius: '12px', background: breathingActive ? 'rgba(255,255,255,0.05)' : '', border: breathingActive ? '1px solid var(--glass-border)' : 'none', color: 'white', cursor: 'pointer', fontWeight: 600, transition: 'var(--transition)' }}
+            >
+              {breathingActive ? <><Square size={16} /> Stop Exercise</> : <><Play size={16} /> Start Exercise</>}
+            </button>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '12px', lineHeight: '1.5' }}>
+              Inhale for 4s, hold for 7s, exhale for 8s. Clinically proven to reduce anxiety and promote sleep.
+            </p>
+          </div>
 
           {/* Mood Selector */}
           <div className="glass-card" style={{ padding: '1.5rem' }}>

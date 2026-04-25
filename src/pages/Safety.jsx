@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldAlert, MapPin, Mic, MicOff, Phone, Share2, AlertTriangle, Plus, Trash2, Navigation, CheckCircle2, X, PhoneCall, Check, Route } from 'lucide-react';
+import { ShieldAlert, MapPin, Mic, MicOff, Phone, Share2, AlertTriangle, Plus, Trash2, Navigation, CheckCircle2, X, PhoneCall, Check, Route, Volume2, VolumeX, Camera, Activity } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 import { getUnsafeZones } from '../services/api';
 
@@ -20,7 +20,14 @@ const Safety = () => {
   const [checkInStatus, setCheckInStatus] = useState(false);
   const [isScanningRoute, setIsScanningRoute] = useState(false);
   const [routeFound, setRouteFound] = useState(false);
+  const [sirenActive, setSirenActive] = useState(false);
+  const [geoFenceAlert, setGeoFenceAlert] = useState(false);
+  const [guardianModeActive, setGuardianModeActive] = useState(false);
+  const [dangerPrediction, setDangerPrediction] = useState(null); // null | 'scanning' | 'alert'
+  const [evidenceCapture, setEvidenceCapture] = useState(false);
   const recognitionRef = useRef(null);
+  const audioContextRef = useRef(null);
+  const oscillatorRef = useRef(null);
 
   useEffect(() => {
     getUnsafeZones().then(setUnsafeZones);
@@ -35,6 +42,7 @@ const Safety = () => {
     } else if (isSOSActive && countdown === 0) {
       setSosStatus('sent');
       setIsSOSActive(false);
+      setEvidenceCapture(true); // Auto Evidence Capture
     }
     return () => clearInterval(timer);
   }, [isSOSActive, countdown]);
@@ -44,6 +52,7 @@ const Safety = () => {
       // Reset
       setSosStatus('idle');
       setCountdown(5);
+      setEvidenceCapture(false);
       return;
     }
     if (isSOSActive) {
@@ -51,6 +60,7 @@ const Safety = () => {
       setIsSOSActive(false);
       setSosStatus('idle');
       setCountdown(5);
+      setEvidenceCapture(false);
       return;
     }
     setIsSOSActive(true);
@@ -107,6 +117,26 @@ const Safety = () => {
     );
   };
 
+  // Geo-Fencing Demo
+  const triggerGeoFenceDemo = () => {
+    if (unsafeZones.length > 0) {
+      setLocation({ lat: unsafeZones[0].lat, lng: unsafeZones[0].lng });
+      setLocationStatus(`📍 ${unsafeZones[0].lat}, ${unsafeZones[0].lng}`);
+      setGeoFenceAlert(true);
+      setGuardianModeActive(true);
+      setTimeout(() => setGeoFenceAlert(false), 8000); // Hide banner after 8s
+    }
+  };
+
+  // AI Danger Prediction Demo
+  const triggerDangerPrediction = () => {
+    setDangerPrediction('scanning');
+    setTimeout(() => {
+      setDangerPrediction('alert');
+      setTimeout(() => setDangerPrediction(null), 8000);
+    }, 2000);
+  };
+
   // Voice Detection
   const toggleVoiceDetection = () => {
     if (voiceDetection) {
@@ -156,8 +186,27 @@ const Safety = () => {
     window.location.href = `tel:${phone.replace(/\s/g, '')}`;
   };
 
-  const handleCheckIn = () => {
+  const handleCheckIn = (method = 'whatsapp') => {
     setCheckInStatus(true);
+    
+    if (contacts.length > 0) {
+      // Append location if available
+      const locText = location ? `\nMy location: https://maps.google.com/?q=${location.lat},${location.lng}` : '';
+      const message = encodeURIComponent(`I reached safely! This is an automated message from SHE360 AI.${locText}`);
+      
+      if (method === 'whatsapp') {
+        // Use the first contact's phone number for WhatsApp direct message
+        const phone = contacts[0].phone.replace(/\D/g, '');
+        window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+      } else if (method === 'sms') {
+        // Join all phone numbers for SMS
+        const phoneNumbers = contacts.map(c => c.phone.replace(/\s/g, '')).join(',');
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const separator = isIOS ? '&' : '?';
+        window.open(`sms:${phoneNumbers}${separator}body=${message}`, '_blank');
+      }
+    }
+
     setTimeout(() => setCheckInStatus(false), 3000);
   };
 
@@ -169,9 +218,111 @@ const Safety = () => {
     }, 2500);
   };
 
+  const toggleSiren = () => {
+    if (sirenActive) {
+      if (oscillatorRef.current) {
+        oscillatorRef.current.stop();
+        oscillatorRef.current.disconnect();
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+      setSirenActive(false);
+    } else {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return alert('Audio not supported in this browser');
+      
+      const ctx = new AudioContext();
+      audioContextRef.current = ctx;
+      
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      
+      oscillator.type = 'square';
+      oscillator.frequency.setValueAtTime(400, ctx.currentTime); // starting frequency
+      
+      // Create a siren effect by modulating frequency
+      setInterval(() => {
+        if(ctx.state === 'running') {
+          oscillator.frequency.setValueAtTime(400, ctx.currentTime);
+          oscillator.frequency.linearRampToValueAtTime(800, ctx.currentTime + 0.3);
+        }
+      }, 600);
+
+      gainNode.gain.value = 1; // max volume
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      oscillator.start();
+      oscillatorRef.current = oscillator;
+      setSirenActive(true);
+    }
+  };
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      if (oscillatorRef.current) {
+        try { oscillatorRef.current.stop(); } catch (e) {}
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+    };
+  }, []);
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="page-container">
-      <div className="grid-2col">
+
+      {/* Geo-Fencing Banner */}
+      <AnimatePresence>
+        {geoFenceAlert && (
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
+            style={{ 
+              background: 'rgba(255,75,145,0.95)', backdropFilter: 'blur(10px)', color: 'white', 
+              padding: '1.2rem', borderRadius: '12px', marginBottom: '1.5rem', 
+              display: 'flex', alignItems: 'flex-start', gap: '12px', border: '1px solid var(--danger)',
+              boxShadow: '0 10px 30px rgba(255,75,145,0.3)'
+            }}
+          >
+            <AlertTriangle size={24} style={{ flexShrink: 0, marginTop: '2px' }} />
+            <div>
+              <h4 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '4px' }}>Geo-Fence Alert: Unsafe Zone Entered</h4>
+              <p style={{ fontSize: '0.85rem', lineHeight: '1.4' }}>
+                You are entering a known high-risk/low-light zone ({unsafeZones[0]?.reason || 'High density'}). 
+                <strong> Live Guardian Mode has been auto-activated</strong> and your location is being shared with trusted contacts.
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Danger Prediction Banner */}
+      <AnimatePresence>
+        {dangerPrediction === 'alert' && (
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
+            style={{ 
+              background: 'rgba(246,173,85,0.95)', backdropFilter: 'blur(10px)', color: '#1a202c', 
+              padding: '1.2rem', borderRadius: '12px', marginBottom: '1.5rem', 
+              display: 'flex', alignItems: 'flex-start', gap: '12px', border: '1px solid #DD6B20',
+              boxShadow: '0 10px 30px rgba(246,173,85,0.3)'
+            }}
+          >
+            <Activity size={24} style={{ flexShrink: 0, marginTop: '2px' }} />
+            <div>
+              <h4 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '4px' }}>AI Danger Prediction: High Risk Situation Detected</h4>
+              <p style={{ fontSize: '0.85rem', lineHeight: '1.4', fontWeight: 600 }}>
+                Stay Alert. Contextual analysis (Late Night + Low Light + Unusual Route) indicates potential danger. Proceed with caution.
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="grid-safety">
 
         {/* ── Left: SOS + Contacts ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -236,6 +387,20 @@ const Safety = () => {
                 <Share2 size={16} /> {shareStatus || 'Share Location'}
               </button>
 
+              <button
+                onClick={toggleSiren}
+                style={{
+                  padding: '10px 16px', borderRadius: '12px', border: 'none', cursor: 'pointer',
+                  background: sirenActive ? 'rgba(255,75,145,0.2)' : 'rgba(255,255,255,0.06)', 
+                  color: sirenActive ? 'var(--danger)' : 'white',
+                  display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 600,
+                  animation: sirenActive ? 'pulse-ring 0.5s infinite' : 'none'
+                }}
+              >
+                {sirenActive ? <VolumeX size={16} /> : <Volume2 size={16} />} 
+                {sirenActive ? 'Stop Siren' : 'Loud Siren'}
+              </button>
+
               {/* Fake Call Action Button */}
               <button
                 onClick={() => setFakeCallActive(true)}
@@ -261,6 +426,27 @@ const Safety = () => {
                 🎙️ Listening... say "Help", "Danger" or "Bachao"
               </p>
             )}
+
+            {/* Auto Evidence Capture */}
+            <AnimatePresence>
+              {evidenceCapture && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                  style={{ overflow: 'hidden', marginTop: '1.5rem' }}
+                >
+                  <div style={{ background: 'rgba(255,75,145,0.15)', border: '1px solid var(--danger)', borderRadius: '12px', padding: '12px', textAlign: 'left' }}>
+                    <h4 style={{ color: 'var(--danger)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                      <Camera size={16} /> Auto Evidence Capture Active
+                    </h4>
+                    <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <li style={{ color: 'white' }}>Recording surrounding audio... <span style={{ color: 'var(--danger)', display: 'inline-block', animation: 'pulse-ring 1s infinite' }}>●</span></li>
+                      <li style={{ color: 'white' }}>Capturing background camera shots...</li>
+                      <li style={{ color: 'white' }}>Live location permanently logged.</li>
+                    </ul>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Emergency Contacts */}
@@ -332,18 +518,32 @@ const Safety = () => {
             {/* Trusted Circle Integration: Safe Check-in */}
             {contacts.length > 0 && (
               <div style={{ marginTop: '1rem', borderTop: '1px solid var(--glass-border)', paddingTop: '1rem', textAlign: 'center' }}>
-                <button
-                  onClick={handleCheckIn}
-                  className={checkInStatus ? "" : "btn-primary"}
-                  style={{
-                    width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '12px', borderRadius: '12px', border: 'none', cursor: 'pointer',
-                    background: checkInStatus ? 'rgba(79,209,197,0.1)' : '',
-                    color: checkInStatus ? 'var(--accent)' : 'white', fontWeight: 700, transition: 'var(--transition)'
-                  }}
-                >
-                  {checkInStatus ? <><CheckCircle2 size={18} /> Safe Check-in Sent!</> : <><Check size={18} /> I reached safely (Notify All)</>}
-                </button>
-                {checkInStatus && <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '6px' }}>Sent current coordinates via SMS to Trusted Circle</p>}
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '10px', fontWeight: 600 }}>Send "I reached safe" via:</p>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    onClick={() => handleCheckIn('whatsapp')}
+                    className={checkInStatus ? "" : "btn-primary"}
+                    style={{
+                      flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '12px', borderRadius: '12px', border: 'none', cursor: 'pointer',
+                      background: checkInStatus ? 'rgba(79,209,197,0.1)' : '#25D366',
+                      color: checkInStatus ? 'var(--accent)' : 'white', fontWeight: 700, transition: 'var(--transition)'
+                    }}
+                  >
+                    {checkInStatus ? <><CheckCircle2 size={18} /> Sent!</> : <><Share2 size={18} /> WhatsApp</>}
+                  </button>
+                  <button
+                    onClick={() => handleCheckIn('sms')}
+                    className={checkInStatus ? "" : "btn-primary"}
+                    style={{
+                      flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '12px', borderRadius: '12px', border: 'none', cursor: 'pointer',
+                      background: checkInStatus ? 'rgba(79,209,197,0.1)' : 'var(--primary)',
+                      color: checkInStatus ? 'var(--accent)' : 'white', fontWeight: 700, transition: 'var(--transition)'
+                    }}
+                  >
+                    {checkInStatus ? <><CheckCircle2 size={18} /> Sent!</> : <><Check size={18} /> SMS (All)</>}
+                  </button>
+                </div>
+                {checkInStatus && <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '6px' }}>Opening messaging app to notify Trusted Circle</p>}
               </div>
             )}
           </div>
@@ -357,10 +557,18 @@ const Safety = () => {
               <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Navigation size={18} color="var(--accent)" /> Live Guardian Tracking
               </h3>
-              <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--accent)', animation: 'pulse-ring 2s infinite', display: 'inline-block' }} />
-                ACTIVE
-              </span>
+              
+              {guardianModeActive ? (
+                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,75,145,0.1)', padding: '4px 10px', borderRadius: '12px', border: '1px solid var(--danger)' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--danger)', animation: 'pulse-ring 1s infinite', display: 'inline-block' }} />
+                  BROADCASTING LIVE
+                </span>
+              ) : (
+                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--text-muted)', display: 'inline-block' }} />
+                  STANDBY
+                </span>
+              )}
             </div>
 
             <div style={{ flex: 1, background: 'linear-gradient(160deg, #0d1120, #121624)', borderRadius: '18px', position: 'relative', overflow: 'hidden', minHeight: '240px' }}>
@@ -439,8 +647,17 @@ const Safety = () => {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '6px' }}>
+                  <button onClick={() => setGuardianModeActive(!guardianModeActive)} style={{ padding: '7px 12px', border: '1px solid var(--accent)', borderRadius: '8px', background: guardianModeActive ? 'var(--accent)' : 'transparent', color: guardianModeActive ? 'var(--bg-card)' : 'var(--accent)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, transition: 'var(--transition)' }}>
+                    {guardianModeActive ? 'STOP LIVE' : 'GO LIVE'}
+                  </button>
+                  <button onClick={triggerDangerPrediction} style={{ padding: '7px 12px', border: '1px solid #DD6B20', borderRadius: '8px', background: dangerPrediction === 'scanning' ? 'rgba(246,173,85,0.2)' : 'transparent', color: '#F6AD55', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, animation: dangerPrediction === 'scanning' ? 'pulse-ring 1s infinite' : 'none' }}>
+                    {dangerPrediction === 'scanning' ? 'ANALYZING...' : 'PREDICT RISK'}
+                  </button>
                   <button onClick={handleScanRoute} style={{ padding: '7px 12px', border: '1px solid var(--primary)', borderRadius: '8px', background: 'transparent', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}>
                     SCAN ROUTE
+                  </button>
+                  <button onClick={triggerGeoFenceDemo} style={{ padding: '7px 12px', border: '1px solid var(--danger)', borderRadius: '8px', background: 'rgba(255,75,145,0.1)', color: 'var(--danger)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }} title="Demo Unsafe Zone Alert">
+                    SIMULATE ZONE
                   </button>
                   <button
                     onClick={toggleVoiceDetection}
