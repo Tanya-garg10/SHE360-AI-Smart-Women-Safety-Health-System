@@ -172,8 +172,27 @@ const Safety = () => {
     window.location.href = `tel:${phone.replace(/\s/g, '')}`;
   };
 
-  const handleCheckIn = () => {
+  const handleCheckIn = (method = 'whatsapp') => {
     setCheckInStatus(true);
+    
+    if (contacts.length > 0) {
+      // Append location if available
+      const locText = location ? `\nMy location: https://maps.google.com/?q=${location.lat},${location.lng}` : '';
+      const message = encodeURIComponent(`I reached safely! This is an automated message from SHE360 AI.${locText}`);
+      
+      if (method === 'whatsapp') {
+        // Use the first contact's phone number for WhatsApp direct message
+        const phone = contacts[0].phone.replace(/\D/g, '');
+        window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+      } else if (method === 'sms') {
+        // Join all phone numbers for SMS
+        const phoneNumbers = contacts.map(c => c.phone.replace(/\s/g, '')).join(',');
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const separator = isIOS ? '&' : '?';
+        window.open(`sms:${phoneNumbers}${separator}body=${message}`, '_blank');
+      }
+    }
+
     setTimeout(() => setCheckInStatus(false), 3000);
   };
 
@@ -441,18 +460,32 @@ const Safety = () => {
             {/* Trusted Circle Integration: Safe Check-in */}
             {contacts.length > 0 && (
               <div style={{ marginTop: '1rem', borderTop: '1px solid var(--glass-border)', paddingTop: '1rem', textAlign: 'center' }}>
-                <button
-                  onClick={handleCheckIn}
-                  className={checkInStatus ? "" : "btn-primary"}
-                  style={{
-                    width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '12px', borderRadius: '12px', border: 'none', cursor: 'pointer',
-                    background: checkInStatus ? 'rgba(79,209,197,0.1)' : '',
-                    color: checkInStatus ? 'var(--accent)' : 'white', fontWeight: 700, transition: 'var(--transition)'
-                  }}
-                >
-                  {checkInStatus ? <><CheckCircle2 size={18} /> Safe Check-in Sent!</> : <><Check size={18} /> I reached safely (Notify All)</>}
-                </button>
-                {checkInStatus && <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '6px' }}>Sent current coordinates via SMS to Trusted Circle</p>}
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '10px', fontWeight: 600 }}>Send "I reached safe" via:</p>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    onClick={() => handleCheckIn('whatsapp')}
+                    className={checkInStatus ? "" : "btn-primary"}
+                    style={{
+                      flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '12px', borderRadius: '12px', border: 'none', cursor: 'pointer',
+                      background: checkInStatus ? 'rgba(79,209,197,0.1)' : '#25D366',
+                      color: checkInStatus ? 'var(--accent)' : 'white', fontWeight: 700, transition: 'var(--transition)'
+                    }}
+                  >
+                    {checkInStatus ? <><CheckCircle2 size={18} /> Sent!</> : <><Share2 size={18} /> WhatsApp</>}
+                  </button>
+                  <button
+                    onClick={() => handleCheckIn('sms')}
+                    className={checkInStatus ? "" : "btn-primary"}
+                    style={{
+                      flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '12px', borderRadius: '12px', border: 'none', cursor: 'pointer',
+                      background: checkInStatus ? 'rgba(79,209,197,0.1)' : 'var(--primary)',
+                      color: checkInStatus ? 'var(--accent)' : 'white', fontWeight: 700, transition: 'var(--transition)'
+                    }}
+                  >
+                    {checkInStatus ? <><CheckCircle2 size={18} /> Sent!</> : <><Check size={18} /> SMS (All)</>}
+                  </button>
+                </div>
+                {checkInStatus && <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '6px' }}>Opening messaging app to notify Trusted Circle</p>}
               </div>
             )}
           </div>
