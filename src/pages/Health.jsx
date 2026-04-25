@@ -5,9 +5,9 @@ import {
   History, Pill, AlertCircle, RotateCcw, Thermometer, Droplets, Zap
 } from 'lucide-react';
 import { useUser } from '../context/UserContext';
-import { getPCOSPrediction } from '../services/api';
+import { getPCOSPrediction, getAnemiaPrediction } from '../services/api';
 
-const QUESTIONS = [
+const PCOS_QUESTIONS = [
   {
     key: 'irregularPeriods',
     label: 'Irregular Periods',
@@ -32,22 +32,33 @@ const QUESTIONS = [
   {
     key: 'acne',
     label: 'Persistent Acne',
-    desc: 'Do you have stubborn, cystic acne that doesn\'t improve with regular skincare treatment?',
+    desc: "Do you have stubborn, cystic acne that doesn't improve with regular skincare treatment?",
     icon: Droplets,
     color: 'var(--accent)',
   },
 ];
 
+const ANEMIA_QUESTIONS = [
+  { key: 'fatigue', label: 'Chronic Fatigue', desc: 'Do you feel unusually tired or exhausted most of the time?', icon: Zap, color: '#F6AD55' },
+  { key: 'paleSkin', label: 'Pale Skin', desc: 'Have you or others noticed your skin, gums, or nails looking paler than usual?', icon: Activity, color: '#FF4B91' },
+  { key: 'dizziness', label: 'Dizziness', desc: 'Do you frequently experience lightheadedness, especially when standing up quickly?', icon: AlertCircle, color: '#9D8DF1' },
+];
+
+
 const Health = () => {
   const { healthReports, addHealthReport } = useUser();
   const [activeView, setActiveView] = useState('wizard');
   const [step, setStep] = useState(0);
+  const [assessmentType, setAssessmentType] = useState('PCOS');
   const [answers, setAnswers] = useState({
     irregularPeriods: null,
     weightGain: null,
     hairGrowth: null,
     acne: null,
     cycleLength: 28,
+    fatigue: null,
+    paleSkin: null,
+    dizziness: null,
   });
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
@@ -58,22 +69,30 @@ const Health = () => {
     setTimeout(() => setStep(s => s + 1), 300);
   };
 
+  const currentQuestions = assessmentType === 'PCOS' ? PCOS_QUESTIONS : ANEMIA_QUESTIONS;
+  
   const handleAnalyze = async () => {
     setLoading(true);
-    const res = await getPCOSPrediction(answers);
+    let res;
+    if (assessmentType === 'PCOS') {
+      res = await getPCOSPrediction(answers);
+      addHealthReport('PCOS Assessment', res);
+    } else {
+      res = await getAnemiaPrediction(answers);
+      addHealthReport('Anemia Assessment', res);
+    }
     setResult(res);
-    addHealthReport('PCOS Assessment', res);
     setLoading(false);
-    setStep(QUESTIONS.length + 1); // results view
+    setStep(currentQuestions.length + (assessmentType === 'PCOS' ? 1 : 0)); // results view
   };
 
   const resetWizard = () => {
     setStep(0);
-    setAnswers({ irregularPeriods: null, weightGain: null, hairGrowth: null, acne: null, cycleLength: 28 });
+    setAnswers({ irregularPeriods: null, weightGain: null, hairGrowth: null, acne: null, cycleLength: 28, fatigue: null, paleSkin: null, dizziness: null });
     setResult(null);
   };
 
-  const progressPct = Math.round((step / (QUESTIONS.length + 1)) * 100);
+  const progressPct = Math.round((step / (currentQuestions.length + (assessmentType === 'PCOS' ? 1 : 0))) * 100);
   const riskColor = result?.risk_level === 'High' ? 'var(--danger)' : result?.risk_level === 'Moderate' ? '#F6AD55' : 'var(--accent)';
 
   return (
@@ -97,6 +116,13 @@ const Health = () => {
           </button>
         ))}
       </div>
+      {activeView === 'wizard' && !result && step === 0 && (
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '1.5rem' }}>
+          <button onClick={() => {setAssessmentType('PCOS'); resetWizard();}} className={assessmentType === 'PCOS' ? 'btn-primary' : ''} style={{ padding: '8px 16px', borderRadius: '8px', background: assessmentType === 'PCOS' ? '' : 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid var(--glass-border)' }}>PCOS Assessment</button>
+          <button onClick={() => {setAssessmentType('Anemia'); resetWizard();}} className={assessmentType === 'Anemia' ? 'btn-primary' : ''} style={{ padding: '8px 16px', borderRadius: '8px', background: assessmentType === 'Anemia' ? '' : 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid var(--glass-border)' }}>Anemia Assessment</button>
+        </div>
+      )}
+
 
       <div className="grid-health">
 
@@ -115,31 +141,31 @@ const Health = () => {
 
             <AnimatePresence mode="wait">
               {/* Questions */}
-              {step < QUESTIONS.length && (
+              {step < currentQuestions.length && (
                 <motion.div
                   key={`q-${step}`}
                   initial={{ x: 60, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -60, opacity: 0 }}
                   style={{ display: 'flex', flexDirection: 'column', height: '100%' }}
                 >
                   <span style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '0.75rem', letterSpacing: '2px' }}>
-                    STEP {step + 1} OF {QUESTIONS.length}
+                    STEP {step + 1} OF {currentQuestions.length}
                   </span>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '1.2rem 0 0.5rem' }}>
-                    <div style={{ background: `${QUESTIONS[step].color}20`, padding: '12px', borderRadius: '14px' }}>
-                      {React.createElement(QUESTIONS[step].icon, { size: 28, color: QUESTIONS[step].color })}
+                    <div style={{ background: `${currentQuestions[step].color}20`, padding: '12px', borderRadius: '14px' }}>
+                      {React.createElement(currentQuestions[step].icon, { size: 28, color: currentQuestions[step].color })}
                     </div>
-                    <h2 style={{ fontSize: '1.6rem', fontWeight: 800 }}>{QUESTIONS[step].label}</h2>
+                    <h2 style={{ fontSize: '1.6rem', fontWeight: 800 }}>{currentQuestions[step].label}</h2>
                   </div>
 
                   <p style={{ color: 'var(--text-muted)', fontSize: '1rem', lineHeight: '1.6', marginBottom: '2.5rem', maxWidth: '480px' }}>
-                    {QUESTIONS[step].desc}
+                    {currentQuestions[step].desc}
                   </p>
 
                   <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                     <motion.button
                       whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                      onClick={() => handleAnswer(QUESTIONS[step].key, true)}
+                      onClick={() => handleAnswer(currentQuestions[step].key, true)}
                       className="btn-primary"
                       style={{ padding: '14px 32px', fontSize: '1rem', flex: '1 1 140px' }}
                     >
@@ -147,7 +173,7 @@ const Health = () => {
                     </motion.button>
                     <motion.button
                       whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                      onClick={() => handleAnswer(QUESTIONS[step].key, false)}
+                      onClick={() => handleAnswer(currentQuestions[step].key, false)}
                       style={{
                         padding: '14px 32px', fontSize: '1rem', flex: '1 1 140px',
                         background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid var(--glass-border)',
@@ -170,8 +196,30 @@ const Health = () => {
                 </motion.div>
               )}
 
+              {/* Analyze screen for Anemia */}
+              {step === currentQuestions.length && assessmentType === 'Anemia' && !loading && !result && (
+                <motion.div
+                  key="anemia-analyze"
+                  initial={{ x: 60, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -60, opacity: 0 }}
+                  style={{ textAlign: 'center' }}
+                >
+                  <Activity size={56} color="var(--primary)" style={{ marginBottom: '1rem' }} />
+                  <h2 style={{ fontSize: '1.6rem' }}>Ready to Analyze?</h2>
+                  <p style={{ color: 'var(--text-muted)', marginTop: '8px', marginBottom: '2rem' }}>
+                    Click below to generate your Anemia risk assessment.
+                  </p>
+                  
+                  <button onClick={handleAnalyze} className="btn-primary" style={{ margin: '0 auto', padding: '14px 40px', fontSize: '1rem' }}>
+                    <Zap size={18} /> Analyze with AI
+                  </button>
+                  <button onClick={() => setStep(s => s - 1)} style={{ marginTop: '1rem', display: 'block', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', margin: '1rem auto 0', fontSize: '0.85rem' }}>
+                    ← Go back
+                  </button>
+                </motion.div>
+              )}
+
               {/* Cycle Length (last question) */}
-              {step === QUESTIONS.length && !loading && !result && (
+              {step === currentQuestions.length && assessmentType === 'PCOS' && !loading && !result && (
                 <motion.div
                   key="cycle"
                   initial={{ x: 60, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -60, opacity: 0 }}
@@ -213,7 +261,7 @@ const Health = () => {
               )}
 
               {/* Results */}
-              {result && step === QUESTIONS.length + 1 && (
+              {result && step === currentQuestions.length + (assessmentType === 'PCOS' ? 1 : 0) && (
                 <motion.div key="result" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} style={{ textAlign: 'center' }}>
                   <div style={{ width: '100px', height: '100px', borderRadius: '50%', background: `${riskColor}20`, border: `4px solid ${riskColor}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
                     {result.risk_level === 'High'
@@ -223,7 +271,7 @@ const Health = () => {
                   </div>
 
                   <h2 style={{ fontSize: '1.8rem' }}>Assessment Complete</h2>
-                  <p style={{ color: 'var(--text-muted)', marginTop: '6px' }}>PCOS Risk Prediction</p>
+                  <p style={{ color: 'var(--text-muted)', marginTop: '6px' }}>{assessmentType} Risk Prediction</p>
 
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', margin: '1.5rem 0' }}>
                     <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>Risk Level:</span>
@@ -325,10 +373,10 @@ const Health = () => {
           </div>
 
           {/* Symptom Summary */}
-          {step > 0 && activeView === 'wizard' && step < QUESTIONS.length + 1 && (
+          {step > 0 && activeView === 'wizard' && step < currentQuestions.length + 1 && (
             <div className="glass-card" style={{ padding: '1.5rem' }}>
               <h3 style={{ fontSize: '0.9rem', marginBottom: '1rem' }}>Your Answers So Far</h3>
-              {QUESTIONS.slice(0, step).map((q, i) => (
+              {currentQuestions.slice(0, step).map((q, i) => (
                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--glass-border)', fontSize: '0.82rem' }}>
                   <span style={{ color: 'var(--text-muted)' }}>{q.label}</span>
                   <span style={{ fontWeight: 700, color: answers[q.key] ? 'var(--danger)' : 'var(--accent)' }}>

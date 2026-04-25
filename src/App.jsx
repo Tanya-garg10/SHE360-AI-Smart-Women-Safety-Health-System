@@ -174,7 +174,7 @@ const App = () => {
         <AnimatePresence mode="wait">
           {activeTab === 'dashboard' && (
             <motion.div key="dashboard" {...pageVariants}>
-              <Dashboard />
+              <Dashboard onNavigate={handleNav} />
             </motion.div>
           )}
           {activeTab === 'profile' && (
