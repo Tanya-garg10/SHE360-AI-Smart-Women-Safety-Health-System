@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldAlert, MapPin, Mic, MicOff, Phone, Share2, AlertTriangle, Plus, Trash2, Navigation, CheckCircle2, X, PhoneCall, Check, Route } from 'lucide-react';
+import { ShieldAlert, MapPin, Mic, MicOff, Phone, Share2, AlertTriangle, Plus, Trash2, Navigation, CheckCircle2, X, PhoneCall, Check, Route, Volume2, VolumeX } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 import { getUnsafeZones } from '../services/api';
 
@@ -20,7 +20,10 @@ const Safety = () => {
   const [checkInStatus, setCheckInStatus] = useState(false);
   const [isScanningRoute, setIsScanningRoute] = useState(false);
   const [routeFound, setRouteFound] = useState(false);
+  const [sirenActive, setSirenActive] = useState(false);
   const recognitionRef = useRef(null);
+  const audioContextRef = useRef(null);
+  const oscillatorRef = useRef(null);
 
   useEffect(() => {
     getUnsafeZones().then(setUnsafeZones);
@@ -169,6 +172,60 @@ const Safety = () => {
     }, 2500);
   };
 
+  const toggleSiren = () => {
+    if (sirenActive) {
+      if (oscillatorRef.current) {
+        oscillatorRef.current.stop();
+        oscillatorRef.current.disconnect();
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+      setSirenActive(false);
+    } else {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return alert('Audio not supported in this browser');
+      
+      const ctx = new AudioContext();
+      audioContextRef.current = ctx;
+      
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      
+      oscillator.type = 'square';
+      oscillator.frequency.setValueAtTime(400, ctx.currentTime); // starting frequency
+      
+      // Create a siren effect by modulating frequency
+      setInterval(() => {
+        if(ctx.state === 'running') {
+          oscillator.frequency.setValueAtTime(400, ctx.currentTime);
+          oscillator.frequency.linearRampToValueAtTime(800, ctx.currentTime + 0.3);
+        }
+      }, 600);
+
+      gainNode.gain.value = 1; // max volume
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      oscillator.start();
+      oscillatorRef.current = oscillator;
+      setSirenActive(true);
+    }
+  };
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      if (oscillatorRef.current) {
+        try { oscillatorRef.current.stop(); } catch (e) {}
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+    };
+  }, []);
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="page-container">
       <div className="grid-2col">
@@ -234,6 +291,20 @@ const Safety = () => {
                 }}
               >
                 <Share2 size={16} /> {shareStatus || 'Share Location'}
+              </button>
+
+              <button
+                onClick={toggleSiren}
+                style={{
+                  padding: '10px 16px', borderRadius: '12px', border: 'none', cursor: 'pointer',
+                  background: sirenActive ? 'rgba(255,75,145,0.2)' : 'rgba(255,255,255,0.06)', 
+                  color: sirenActive ? 'var(--danger)' : 'white',
+                  display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 600,
+                  animation: sirenActive ? 'pulse-ring 0.5s infinite' : 'none'
+                }}
+              >
+                {sirenActive ? <VolumeX size={16} /> : <Volume2 size={16} />} 
+                {sirenActive ? 'Stop Siren' : 'Loud Siren'}
               </button>
 
               {/* Fake Call Action Button */}
