@@ -8,7 +8,7 @@ const cardVariant = {
   show: (i) => ({ opacity: 1, y: 0, transition: { delay: i * 0.08, duration: 0.4, ease: [0.4, 0, 0.2, 1] } }),
 };
 
-const Dashboard = () => {
+const Dashboard = ({ onNavigate }) => {
   const { moodHistory, healthReports, contacts, userName } = useUser();
   const lastMood = moodHistory[moodHistory.length - 1];
   const lastReport = healthReports[0];
@@ -21,6 +21,7 @@ const Dashboard = () => {
       color: '#4FD1C5',
       bg: 'rgba(79,209,197,0.08)',
       sub: `${contacts.length} contacts saved`,
+      tab: 'safety'
     },
     {
       label: 'Health Reports',
@@ -29,6 +30,7 @@ const Dashboard = () => {
       color: '#9D8DF1',
       bg: 'rgba(157,141,241,0.08)',
       sub: lastReport ? `Last: ${lastReport.result?.risk_level} risk` : 'No assessments yet',
+      tab: 'health'
     },
     {
       label: 'Mood Today',
@@ -37,6 +39,7 @@ const Dashboard = () => {
       color: '#FF4B91',
       bg: 'rgba(255,75,145,0.08)',
       sub: lastMood ? new Date(lastMood.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Log your mood →',
+      tab: 'mental'
     },
     {
       label: 'AI Insights',
@@ -45,6 +48,7 @@ const Dashboard = () => {
       color: '#F6AD55',
       bg: 'rgba(246,173,85,0.08)',
       sub: 'Personalized wellness tips',
+      tab: 'dashboard'
     },
   ];
 
@@ -93,7 +97,7 @@ const Dashboard = () => {
       {/* Stat Cards */}
       <div className="grid-layout" style={{ marginBottom: '2rem' }}>
         {stats.map((stat, i) => (
-          <motion.div key={i} variants={cardVariant} custom={i + 1} className="glass-card" style={{ padding: '1.5rem', background: stat.bg, position: 'relative', overflow: 'hidden' }}>
+          <motion.div key={i} variants={cardVariant} custom={i + 1} onClick={() => stat.tab && onNavigate && onNavigate(stat.tab)} className="glass-card stat-card-hover" style={{ padding: '1.5rem', background: stat.bg, position: 'relative', overflow: 'hidden', cursor: 'pointer' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
               <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600 }}>{stat.label}</span>
               <div style={{ background: `${stat.color}22`, padding: '8px', borderRadius: '10px' }}>

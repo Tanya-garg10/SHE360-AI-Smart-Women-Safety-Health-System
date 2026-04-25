@@ -26,6 +26,25 @@ const localPCOS = (data) => {
   };
 };
 
+const localAnemia = (data) => {
+  let score = 0;
+  if (data.fatigue) score += 40;
+  if (data.paleSkin) score += 30;
+  if (data.dizziness) score += 30;
+  
+  const risk_level = score >= 70 ? 'High' : score >= 40 ? 'Moderate' : 'Low';
+  return {
+    risk_score: score,
+    risk_level,
+    recommendation:
+      risk_level === 'High'
+        ? '⚠️ High risk of anemia. Please check your iron levels with a doctor.'
+        : risk_level === 'Moderate'
+        ? '🔍 Consider an iron-rich diet and monitor your symptoms.'
+        : '✅ Your iron levels appear to be fine. Stay healthy!',
+  };
+};
+
 const localSentiment = (text) => {
   const t = text.toLowerCase();
   const positive = ['happy', 'good', 'great', 'fine', 'excited', 'wonderful', 'love', 'joy', 'amazing', 'fantastic', 'better', 'nice', 'smile', 'glad', 'thank', 'hopeful'];
@@ -78,6 +97,24 @@ export const getPCOSPrediction = async (data) => {
     return res.data;
   } catch {
     return localPCOS(data);
+  }
+};
+
+export const getAnemiaPrediction = async (data) => {
+  try {
+    const res = await api.post('/predict/anemia', {
+      fatigue: data.fatigue,
+      pale_skin: data.paleSkin,
+      dizziness: data.dizziness,
+    });
+    // The backend returns symptoms_analyzed, risk_level, advice. We map to risk_score, risk_level, recommendation
+    return {
+      risk_score: res.data.symptoms_analyzed * 33, // rough mock to 100%
+      risk_level: res.data.risk_level,
+      recommendation: res.data.advice
+    };
+  } catch {
+    return localAnemia(data);
   }
 };
 

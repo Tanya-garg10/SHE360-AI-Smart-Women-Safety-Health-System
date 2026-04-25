@@ -71,13 +71,28 @@ const Safety = () => {
         const mapsLink = `https://maps.google.com/?q=${latitude},${longitude}`;
         setLocationStatus(`📍 ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
         setShareStatus('Location ready! ✓');
-        // Copy to clipboard
-        if (navigator.clipboard) {
-          navigator.clipboard.writeText(`🆘 SHE360 SOS - My Location: ${mapsLink}`).then(() => {
-            setShareStatus('Copied to clipboard! ✓');
+        const textToShare = `🆘 SHE360 SOS - My Location: ${mapsLink}`;
+
+        if (navigator.share) {
+          navigator.share({
+            title: 'SHE360 Emergency SOS',
+            text: textToShare,
+          }).then(() => {
+            setShareStatus('Shared! ✓');
+            setTimeout(() => setShareStatus(''), 3000);
+          }).catch((err) => {
+            console.error('Share failed', err);
+            setShareStatus('Share cancelled');
+            setTimeout(() => setShareStatus(''), 3000);
           });
+        } else if (navigator.clipboard) {
+          navigator.clipboard.writeText(textToShare).then(() => {
+            setShareStatus('Copied to clipboard! ✓');
+            setTimeout(() => setShareStatus(''), 3000);
+          });
+        } else {
+          setTimeout(() => setShareStatus(''), 3000);
         }
-        setTimeout(() => setShareStatus(''), 3000);
       },
       () => {
         setLocationStatus('Location access denied');
