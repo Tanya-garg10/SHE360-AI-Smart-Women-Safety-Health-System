@@ -21,6 +21,8 @@ const Safety = () => {
   const [isScanningRoute, setIsScanningRoute] = useState(false);
   const [routeFound, setRouteFound] = useState(false);
   const [sirenActive, setSirenActive] = useState(false);
+  const [geoFenceAlert, setGeoFenceAlert] = useState(false);
+  const [guardianModeActive, setGuardianModeActive] = useState(false);
   const recognitionRef = useRef(null);
   const audioContextRef = useRef(null);
   const oscillatorRef = useRef(null);
@@ -108,6 +110,17 @@ const Safety = () => {
         maximumAge: 0
       }
     );
+  };
+
+  // Geo-Fencing Demo
+  const triggerGeoFenceDemo = () => {
+    if (unsafeZones.length > 0) {
+      setLocation({ lat: unsafeZones[0].lat, lng: unsafeZones[0].lng });
+      setLocationStatus(`📍 ${unsafeZones[0].lat}, ${unsafeZones[0].lng}`);
+      setGeoFenceAlert(true);
+      setGuardianModeActive(true);
+      setTimeout(() => setGeoFenceAlert(false), 8000); // Hide banner after 8s
+    }
   };
 
   // Voice Detection
@@ -228,7 +241,32 @@ const Safety = () => {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="page-container">
-      <div className="grid-2col">
+
+      {/* Geo-Fencing Banner */}
+      <AnimatePresence>
+        {geoFenceAlert && (
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
+            style={{ 
+              background: 'rgba(255,75,145,0.95)', backdropFilter: 'blur(10px)', color: 'white', 
+              padding: '1.2rem', borderRadius: '12px', marginBottom: '1.5rem', 
+              display: 'flex', alignItems: 'flex-start', gap: '12px', border: '1px solid var(--danger)',
+              boxShadow: '0 10px 30px rgba(255,75,145,0.3)'
+            }}
+          >
+            <AlertTriangle size={24} style={{ flexShrink: 0, marginTop: '2px' }} />
+            <div>
+              <h4 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '4px' }}>Geo-Fence Alert: Unsafe Zone Entered</h4>
+              <p style={{ fontSize: '0.85rem', lineHeight: '1.4' }}>
+                You are entering a known high-risk/low-light zone ({unsafeZones[0]?.reason || 'High density'}). 
+                <strong> Live Guardian Mode has been auto-activated</strong> and your location is being shared with trusted contacts.
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="grid-safety">
 
         {/* ── Left: SOS + Contacts ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -428,10 +466,18 @@ const Safety = () => {
               <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Navigation size={18} color="var(--accent)" /> Live Guardian Tracking
               </h3>
-              <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--accent)', animation: 'pulse-ring 2s infinite', display: 'inline-block' }} />
-                ACTIVE
-              </span>
+              
+              {guardianModeActive ? (
+                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,75,145,0.1)', padding: '4px 10px', borderRadius: '12px', border: '1px solid var(--danger)' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--danger)', animation: 'pulse-ring 1s infinite', display: 'inline-block' }} />
+                  BROADCASTING LIVE
+                </span>
+              ) : (
+                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--text-muted)', display: 'inline-block' }} />
+                  STANDBY
+                </span>
+              )}
             </div>
 
             <div style={{ flex: 1, background: 'linear-gradient(160deg, #0d1120, #121624)', borderRadius: '18px', position: 'relative', overflow: 'hidden', minHeight: '240px' }}>
@@ -510,8 +556,14 @@ const Safety = () => {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '6px' }}>
+                  <button onClick={() => setGuardianModeActive(!guardianModeActive)} style={{ padding: '7px 12px', border: '1px solid var(--accent)', borderRadius: '8px', background: guardianModeActive ? 'var(--accent)' : 'transparent', color: guardianModeActive ? 'var(--bg-card)' : 'var(--accent)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, transition: 'var(--transition)' }}>
+                    {guardianModeActive ? 'STOP LIVE' : 'GO LIVE'}
+                  </button>
                   <button onClick={handleScanRoute} style={{ padding: '7px 12px', border: '1px solid var(--primary)', borderRadius: '8px', background: 'transparent', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}>
                     SCAN ROUTE
+                  </button>
+                  <button onClick={triggerGeoFenceDemo} style={{ padding: '7px 12px', border: '1px solid var(--danger)', borderRadius: '8px', background: 'rgba(255,75,145,0.1)', color: 'var(--danger)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }} title="Demo Unsafe Zone Alert">
+                    SIMULATE ZONE
                   </button>
                   <button
                     onClick={toggleVoiceDetection}

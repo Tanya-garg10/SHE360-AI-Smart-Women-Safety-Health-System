@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Shield, Activity, Heart, Zap, MapPin, TrendingUp, Bell, BarChart3, Users } from 'lucide-react';
+import { Shield, Activity, Heart, Zap, MapPin, TrendingUp, Bell, BarChart3, Users, BrainCircuit, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 
 const cardVariant = {
@@ -71,6 +71,15 @@ const Dashboard = ({ onNavigate }) => {
     ? `💡 Daily Tip: Your last health scan showed High risk. Please prioritize resting today and consult a doctor.`
     : '💡 Daily Tip: Drink 2 liters of water today and remember to log your mood later tonight for personalized insights.';
 
+  // AI Risk Prediction Score Calculation
+  const safetyScore = contacts.length > 0 ? 100 : 40;
+  const healthScore = lastReport ? (lastReport.result?.risk_level === 'High' ? 30 : lastReport.result?.risk_level === 'Moderate' ? 70 : 100) : 80;
+  const mentalScore = lastMood ? (lastMood.label === 'Sunny' ? 100 : lastMood.label === 'Neutral' ? 70 : 40) : 70;
+  const overallRiskIndex = Math.round((safetyScore + healthScore + mentalScore) / 3);
+
+  const getRiskColor = (score) => score >= 80 ? 'var(--accent)' : score >= 50 ? '#F6AD55' : 'var(--danger)';
+  const getRiskLabel = (score) => score >= 80 ? 'Low Risk' : score >= 50 ? 'Moderate' : 'High Risk';
+
   return (
     <motion.div
       initial="hidden" animate="show"
@@ -111,10 +120,68 @@ const Dashboard = ({ onNavigate }) => {
         ))}
       </div>
 
+      {/* AI Risk Prediction Score (New Feature) */}
+      <motion.div variants={cardVariant} custom={5} className="glass-card" style={{ padding: '1.5rem', marginBottom: '2rem', borderTop: '4px solid var(--primary)', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', right: '-20px', top: '-20px', opacity: 0.05, pointerEvents: 'none' }}>
+          <BrainCircuit size={150} />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px' }}>
+          <div style={{ flex: '1 1 300px' }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.2rem', marginBottom: '6px' }}>
+              <BrainCircuit size={22} color="var(--primary)" /> AI Risk Prediction Score
+            </h3>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>System calculates a real-time risk score using AI models across Safety, Health, and Mental Wellness.</p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {/* Safety Risk */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ width: '80px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Safety</span>
+                <div style={{ flex: 1, height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', overflow: 'hidden' }}>
+                  <motion.div initial={{ width: 0 }} animate={{ width: `${safetyScore}%` }} transition={{ duration: 1 }} style={{ height: '100%', background: getRiskColor(safetyScore) }} />
+                </div>
+                <span style={{ width: '60px', fontSize: '0.75rem', fontWeight: 700, color: getRiskColor(safetyScore), textAlign: 'right' }}>{getRiskLabel(safetyScore)}</span>
+              </div>
+              
+              {/* Health Risk */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ width: '80px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Health</span>
+                <div style={{ flex: 1, height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', overflow: 'hidden' }}>
+                  <motion.div initial={{ width: 0 }} animate={{ width: `${healthScore}%` }} transition={{ duration: 1, delay: 0.2 }} style={{ height: '100%', background: getRiskColor(healthScore) }} />
+                </div>
+                <span style={{ width: '60px', fontSize: '0.75rem', fontWeight: 700, color: getRiskColor(healthScore), textAlign: 'right' }}>{100 - healthScore}% Risk</span>
+              </div>
+
+              {/* Mental Risk */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ width: '80px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Wellness</span>
+                <div style={{ flex: 1, height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', overflow: 'hidden' }}>
+                  <motion.div initial={{ width: 0 }} animate={{ width: `${mentalScore}%` }} transition={{ duration: 1, delay: 0.4 }} style={{ height: '100%', background: getRiskColor(mentalScore) }} />
+                </div>
+                <span style={{ width: '60px', fontSize: '0.75rem', fontWeight: 700, color: getRiskColor(mentalScore), textAlign: 'right' }}>Score: {mentalScore}</span>
+              </div>
+            </div>
+          </div>
+          
+          {/* Overall Score Circle */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minWidth: '150px' }}>
+            <div style={{ position: 'relative', width: '120px', height: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: `conic-gradient(${getRiskColor(overallRiskIndex)} ${overallRiskIndex}%, rgba(255,255,255,0.05) 0)`, boxShadow: `0 0 20px ${getRiskColor(overallRiskIndex)}20` }}>
+              <div style={{ position: 'absolute', width: '100px', height: '100px', background: 'var(--bg-card)', borderRadius: '50%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontSize: '2rem', fontWeight: 900, color: getRiskColor(overallRiskIndex), lineHeight: '1' }}>{overallRiskIndex}</span>
+                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '2px' }}>OVERALL</span>
+              </div>
+            </div>
+            <div style={{ marginTop: '12px', padding: '4px 12px', background: `${getRiskColor(overallRiskIndex)}20`, color: getRiskColor(overallRiskIndex), borderRadius: '20px', fontSize: '0.75rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+              {overallRiskIndex >= 80 ? <ShieldCheck size={14} /> : <AlertTriangle size={14} />}
+              {overallRiskIndex >= 80 ? 'System Secure' : 'Attention Needed'}
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
       {/* Activity + AI Insight */}
       <div className="grid-activity">
         {/* Activity Feed */}
-        <motion.div variants={cardVariant} custom={5} className="glass-card" style={{ padding: '1.5rem' }}>
+        <motion.div variants={cardVariant} custom={6} className="glass-card" style={{ padding: '1.5rem' }}>
           <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <TrendingUp size={18} color="var(--primary)" /> Recent Activity
           </h3>
