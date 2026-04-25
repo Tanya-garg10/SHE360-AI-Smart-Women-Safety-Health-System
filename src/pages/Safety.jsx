@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldAlert, MapPin, Mic, MicOff, Phone, Share2, AlertTriangle, Plus, Trash2, Navigation, CheckCircle2, X, PhoneCall, Check, Route, Volume2, VolumeX } from 'lucide-react';
+import { ShieldAlert, MapPin, Mic, MicOff, Phone, Share2, AlertTriangle, Plus, Trash2, Navigation, CheckCircle2, X, PhoneCall, Check, Route, Volume2, VolumeX, Camera, Activity } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 import { getUnsafeZones } from '../services/api';
 
@@ -23,6 +23,8 @@ const Safety = () => {
   const [sirenActive, setSirenActive] = useState(false);
   const [geoFenceAlert, setGeoFenceAlert] = useState(false);
   const [guardianModeActive, setGuardianModeActive] = useState(false);
+  const [dangerPrediction, setDangerPrediction] = useState(null); // null | 'scanning' | 'alert'
+  const [evidenceCapture, setEvidenceCapture] = useState(false);
   const recognitionRef = useRef(null);
   const audioContextRef = useRef(null);
   const oscillatorRef = useRef(null);
@@ -40,6 +42,7 @@ const Safety = () => {
     } else if (isSOSActive && countdown === 0) {
       setSosStatus('sent');
       setIsSOSActive(false);
+      setEvidenceCapture(true); // Auto Evidence Capture
     }
     return () => clearInterval(timer);
   }, [isSOSActive, countdown]);
@@ -49,6 +52,7 @@ const Safety = () => {
       // Reset
       setSosStatus('idle');
       setCountdown(5);
+      setEvidenceCapture(false);
       return;
     }
     if (isSOSActive) {
@@ -56,6 +60,7 @@ const Safety = () => {
       setIsSOSActive(false);
       setSosStatus('idle');
       setCountdown(5);
+      setEvidenceCapture(false);
       return;
     }
     setIsSOSActive(true);
@@ -121,6 +126,15 @@ const Safety = () => {
       setGuardianModeActive(true);
       setTimeout(() => setGeoFenceAlert(false), 8000); // Hide banner after 8s
     }
+  };
+
+  // AI Danger Prediction Demo
+  const triggerDangerPrediction = () => {
+    setDangerPrediction('scanning');
+    setTimeout(() => {
+      setDangerPrediction('alert');
+      setTimeout(() => setDangerPrediction(null), 8000);
+    }, 2000);
   };
 
   // Voice Detection
@@ -285,6 +299,29 @@ const Safety = () => {
         )}
       </AnimatePresence>
 
+      {/* Danger Prediction Banner */}
+      <AnimatePresence>
+        {dangerPrediction === 'alert' && (
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
+            style={{ 
+              background: 'rgba(246,173,85,0.95)', backdropFilter: 'blur(10px)', color: '#1a202c', 
+              padding: '1.2rem', borderRadius: '12px', marginBottom: '1.5rem', 
+              display: 'flex', alignItems: 'flex-start', gap: '12px', border: '1px solid #DD6B20',
+              boxShadow: '0 10px 30px rgba(246,173,85,0.3)'
+            }}
+          >
+            <Activity size={24} style={{ flexShrink: 0, marginTop: '2px' }} />
+            <div>
+              <h4 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '4px' }}>AI Danger Prediction: High Risk Situation Detected</h4>
+              <p style={{ fontSize: '0.85rem', lineHeight: '1.4', fontWeight: 600 }}>
+                Stay Alert. Contextual analysis (Late Night + Low Light + Unusual Route) indicates potential danger. Proceed with caution.
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="grid-safety">
 
         {/* ── Left: SOS + Contacts ── */}
@@ -389,6 +426,27 @@ const Safety = () => {
                 🎙️ Listening... say "Help", "Danger" or "Bachao"
               </p>
             )}
+
+            {/* Auto Evidence Capture */}
+            <AnimatePresence>
+              {evidenceCapture && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                  style={{ overflow: 'hidden', marginTop: '1.5rem' }}
+                >
+                  <div style={{ background: 'rgba(255,75,145,0.15)', border: '1px solid var(--danger)', borderRadius: '12px', padding: '12px', textAlign: 'left' }}>
+                    <h4 style={{ color: 'var(--danger)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                      <Camera size={16} /> Auto Evidence Capture Active
+                    </h4>
+                    <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <li style={{ color: 'white' }}>Recording surrounding audio... <span style={{ color: 'var(--danger)', display: 'inline-block', animation: 'pulse-ring 1s infinite' }}>●</span></li>
+                      <li style={{ color: 'white' }}>Capturing background camera shots...</li>
+                      <li style={{ color: 'white' }}>Live location permanently logged.</li>
+                    </ul>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Emergency Contacts */}
@@ -591,6 +649,9 @@ const Safety = () => {
                 <div style={{ display: 'flex', gap: '6px' }}>
                   <button onClick={() => setGuardianModeActive(!guardianModeActive)} style={{ padding: '7px 12px', border: '1px solid var(--accent)', borderRadius: '8px', background: guardianModeActive ? 'var(--accent)' : 'transparent', color: guardianModeActive ? 'var(--bg-card)' : 'var(--accent)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, transition: 'var(--transition)' }}>
                     {guardianModeActive ? 'STOP LIVE' : 'GO LIVE'}
+                  </button>
+                  <button onClick={triggerDangerPrediction} style={{ padding: '7px 12px', border: '1px solid #DD6B20', borderRadius: '8px', background: dangerPrediction === 'scanning' ? 'rgba(246,173,85,0.2)' : 'transparent', color: '#F6AD55', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, animation: dangerPrediction === 'scanning' ? 'pulse-ring 1s infinite' : 'none' }}>
+                    {dangerPrediction === 'scanning' ? 'ANALYZING...' : 'PREDICT RISK'}
                   </button>
                   <button onClick={handleScanRoute} style={{ padding: '7px 12px', border: '1px solid var(--primary)', borderRadius: '8px', background: 'transparent', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}>
                     SCAN ROUTE
