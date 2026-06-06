@@ -1,3 +1,4 @@
+"""SHE360 AI — FastAPI prediction engine for health, safety & wellness endpoints."""
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -30,6 +31,18 @@ class AnemiaInput(BaseModel):
 
 class SentimentInput(BaseModel):
     text: str
+
+class SafetyProfileInput(BaseModel):
+    routine: str = "office"
+    travel_alone: bool = True
+    late_night_commute: bool = False
+    public_transport: bool = True
+
+class WellnessPlanInput(BaseModel):
+    mood_count: int = 0
+    health_risk: str = "Low"
+    sleep_hours: float = 7.0
+    activity_level: str = "moderate"
 
 # --- Endpoints ---
 
@@ -80,10 +93,54 @@ async def analyze_sentiment(data: SentimentInput):
 
 @app.get("/safety/unsafe-zones")
 async def get_unsafe_zones():
-    # Mocking location-based safety zones
     return [
         {"lat": 28.62, "lng": 77.21, "radius": 500, "reason": "High density / Low lighting"},
         {"lat": 28.65, "lng": 77.24, "radius": 300, "reason": "Crowded area precaution"}
+    ]
+
+@app.post("/safety/risk-profile")
+async def get_risk_profile(data: SafetyProfileInput):
+    score = 30
+    suggestions = []
+    if data.travel_alone:
+        score += 15
+        suggestions.append("Share live location when traveling alone")
+    if data.late_night_commute:
+        score += 20
+        suggestions.append("Use well-lit routes after 10 PM")
+    if data.public_transport:
+        score += 10
+        suggestions.append("Sit near driver or women-only section")
+    if data.routine == "night-shift":
+        score += 12
+        suggestions.append("Pre-share route with guardian contacts")
+    level = "High" if score > 65 else "Moderate" if score > 45 else "Low"
+    return {"risk_score": min(score, 100), "level": level, "suggestions": suggestions}
+
+@app.post("/wellness/weekly-plan")
+async def get_weekly_plan(data: WellnessPlanInput):
+    days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    focus_areas = ["Mind & Body", "Safety & Rest", "Nutrition & Activity"]
+    plan = []
+    for i, day in enumerate(days):
+        tasks = [
+            {"type": "mindfulness", "task": "10-min breathing exercise", "done": False},
+            {"type": "hydration", "task": f"{2.5 if data.sleep_hours >= 7 else 3}L water daily", "done": False},
+        ]
+        if data.health_risk != "Low":
+            tasks.append({"type": "health", "task": "Monitor health symptoms", "done": False})
+        if i % 2 == 0:
+            tasks.append({"type": "safety", "task": "Daily safety check-in", "done": False})
+        plan.append({"day": day, "focus": focus_areas[i % 3], "tasks": tasks})
+    return {"plan": plan, "generated": True}
+
+@app.get("/safety/verified-spaces")
+async def get_verified_spaces():
+    return [
+        {"id": 1, "name": "Delhi University — North Campus", "type": "Campus", "partner": "DU Safety Cell", "verified": True, "address": "Delhi 110007", "hours": "24/7"},
+        {"id": 2, "name": "Apollo Pharmacy — Connaught Place", "type": "Business", "partner": "Apollo Hospitals", "verified": True, "address": "CP, New Delhi", "hours": "8 AM - 11 PM"},
+        {"id": 3, "name": "Infosys Campus — Gurugram", "type": "Organization", "partner": "Infosys SHE", "verified": True, "address": "Sector 60, Gurugram", "hours": "24/7"},
+        {"id": 4, "name": "Metro Station — Rajiv Chowk", "type": "Transit", "partner": "DMRC Women Safety", "verified": True, "address": "Connaught Place Metro", "hours": "5 AM - 11 PM"},
     ]
 
 if __name__ == "__main__":

@@ -98,6 +98,15 @@ const Health = () => {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="page-container">
 
+      {/* Health Suite Banner */}
+      <div className="glass-card" style={{ padding: '1rem 1.5rem', marginBottom: '1.5rem', background: 'linear-gradient(100deg, rgba(255,75,145,0.08), rgba(157,141,241,0.06))', borderLeft: '4px solid var(--danger)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <Activity size={20} color="var(--danger)" />
+        <div>
+          <p style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--danger)', letterSpacing: '1px' }}>HEALTH SUITE</p>
+          <h3 style={{ fontSize: '0.95rem', fontWeight: 600, marginTop: '2px' }}>AI-powered PCOS risk assessment with historical trend tracking</h3>
+        </div>
+      </div>
+
       {/* Tab Switcher */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '2rem' }}>
         {[{ id: 'wizard', label: '🩺 Assessment Wizard' }, { id: 'history', label: '📋 History' }].map(tab => (

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { LANGUAGE_NAMES } from '../utils/features';
 
 const API_BASE_URL = 'http://localhost:8000';
 
@@ -136,21 +137,25 @@ export const getUnsafeZones = async () => {
   }
 };
 
-export const getGroqChatResponse = async (chatHistory) => {
+export const getGroqChatResponse = async (chatHistory, replyLanguage = 'en-IN') => {
   try {
     const apiKey = import.meta.env.VITE_GROQ_API_KEY;
     if (!apiKey) throw new Error("No Groq API Key found");
 
-    // Format messages for Groq API
+    const langName = LANGUAGE_NAMES[replyLanguage] || 'English';
+
     const messages = chatHistory.map(m => ({
       role: m.sender === 'ai' ? 'assistant' : 'user',
       content: m.text
     }));
 
-    // Add a system prompt at the beginning
     messages.unshift({
       role: 'system',
-      content: 'You are SHE360 Mindful Assistant, an empathetic, supportive, and kind AI companion designed for women\'s wellness. Act as a trusted friend, listen to their problems, and provide positive and caring advice. Keep your responses concise (2-3 sentences mostly) and use emojis appropriately. Never act cold or overly robotic.'
+      content: `You are SHE360 Mindful Assistant, an empathetic, supportive AI companion for women's wellness.
+
+CRITICAL LANGUAGE RULE: The user's latest message is in ${langName}. You MUST reply ONLY in ${langName}. Never reply in English if the user wrote in another language. Always match the exact language the user uses — Hindi, Bengali, Tamil, Telugu, Marathi, Gujarati, Kannada, or English.
+
+Be warm like a trusted friend. Keep replies concise (2-3 sentences). Use emojis appropriately. Never be cold or robotic.`,
     });
 
     const res = await axios.post(
@@ -174,6 +179,41 @@ export const getGroqChatResponse = async (chatHistory) => {
     console.error("Groq API Error/Missing Key. Using local fallback.");
     const lastUserMsg = chatHistory[chatHistory.length - 1]?.text || "";
     return localChatFallback(lastUserMsg);
+  }
+};
+
+export const getSafetyRiskProfile = async (profile) => {
+  try {
+    const res = await api.post('/safety/risk-profile', profile);
+    return res.data;
+  } catch {
+    let score = 30;
+    if (profile.travel_alone) score += 15;
+    if (profile.late_night_commute) score += 20;
+    if (profile.public_transport) score += 10;
+    const level = score > 65 ? 'High' : score > 45 ? 'Moderate' : 'Low';
+    return { risk_score: Math.min(score, 100), level, suggestions: ['Share live location when traveling alone', 'Use well-lit routes after 10 PM'] };
+  }
+};
+
+export const getWellnessPlan = async (data) => {
+  try {
+    const res = await api.post('/wellness/weekly-plan', data);
+    return res.data;
+  } catch {
+    return { plan: [], message: 'Generated locally' };
+  }
+};
+
+export const getVerifiedSafeSpaces = async () => {
+  try {
+    const res = await api.get('/safety/verified-spaces');
+    return res.data;
+  } catch {
+    return [
+      { id: 1, name: 'Delhi University — North Campus', type: 'Campus', verified: true },
+      { id: 2, name: 'Apollo Pharmacy — Connaught Place', type: 'Business', verified: true },
+    ];
   }
 };
 

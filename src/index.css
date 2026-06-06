@@ -515,6 +515,68 @@ body {
   }
 }
 
+/* ===================== ACCESSIBILITY MODES ===================== */
+[data-large-text="true"] {
+  font-size: 118%;
+}
+
+[data-large-text="true"] .nav-btn {
+  font-size: 1.1rem;
+  padding: 14px 16px;
+}
+
+[data-large-text="true"] .header-left h2 {
+  font-size: 1.5rem;
+}
+
+[data-high-contrast="true"] {
+  --bg-deep: #000000;
+  --bg-card: rgba(0, 0, 0, 0.95);
+  --glass-border: rgba(255, 255, 255, 0.3);
+  --text-main: #FFFFFF;
+  --text-muted: #E2E8F0;
+  --primary: #B794F6;
+  --accent: #4FD1C5;
+  --danger: #FF6B9D;
+}
+
+[data-high-contrast="true"] .glass-card {
+  border-width: 2px;
+}
+
+[data-simplified-nav="true"] .nav-btn {
+  padding: 16px 18px;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+[data-simplified-nav="true"] .sidebar-nav {
+  gap: 8px;
+}
+
+[data-screen-reader="true"] .nav-btn:focus-visible,
+[data-screen-reader="true"] .btn-primary:focus-visible,
+[data-screen-reader="true"] .header-icon-btn:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+[data-screen-reader="true"] button,
+[data-screen-reader="true"] a,
+[data-screen-reader="true"] input,
+[data-screen-reader="true"] select,
+[data-screen-reader="true"] textarea {
+  min-height: 44px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* Small Mobile: 480px */
 @media (max-width: 480px) {
   .page-container {

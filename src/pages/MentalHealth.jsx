@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, Send, Smile, Meh, Frown, Sparkles, Brain, BarChart3, Trash2, Bot, Wind, Play, Square } from 'lucide-react';
+import { MessageSquare, Send, Smile, Meh, Frown, Sparkles, Brain, BarChart3, Trash2, Bot, Wind, Play, Square, Calendar, CheckCircle2, RefreshCw } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 import { getSentiment, getGroqChatResponse } from '../services/api';
+import { generateWeeklyWellnessPlan, detectMessageLanguage, CHAT_GREETINGS, CHAT_FALLBACK, CHAT_PLACEHOLDERS } from '../utils/features';
 
 const MOODS = [
   { label: 'Cloudy', icon: Frown, color: '#FF4B91', value: 1, emoji: '😔', tip: 'It\'s okay to feel this way. Let\'s talk about it.' },
@@ -10,18 +11,19 @@ const MOODS = [
   { label: 'Sunny',  icon: Smile,  color: '#4FD1C5', value: 3, emoji: '😊', tip: 'You\'re doing great! Keep spreading that energy.' },
 ];
 
-const INITIAL_MESSAGES = [
-  { id: 1, text: "Hello! 💜 I'm your Mindful AI Assistant. How are you feeling today? You can share anything — this is your safe space.", sender: 'ai' },
+const getInitialMessages = (lang) => [
+  { id: 1, text: CHAT_GREETINGS[lang] || CHAT_GREETINGS['en-IN'], sender: 'ai' },
 ];
 
 const MentalHealth = () => {
-  const { moodHistory, addMood } = useUser();
+  const { moodHistory, addMood, healthReports, wellnessPlan, setWellnessPlan, toggleWellnessTask, sleepHours, setSleepHours, activityLevel, setActivityLevel, language } = useUser();
   const [messages, setMessages] = useState(() => {
     try {
       const saved = localStorage.getItem('she360-chat');
-      return saved ? JSON.parse(saved) : INITIAL_MESSAGES;
-    } catch { return INITIAL_MESSAGES; }
+      return saved ? JSON.parse(saved) : getInitialMessages(language);
+    } catch { return getInitialMessages(language); }
   });
+  const [lastReplyLang, setLastReplyLang] = useState(language);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [breathingActive, setBreathingActive] = useState(false);
@@ -80,20 +82,22 @@ const MentalHealth = () => {
     if (sentiment === 'Positive') addMood('Sunny');
     else if (sentiment === 'Negative') addMood('Cloudy');
 
-    // Send the entire message history + new user message to Groq
+    const replyLang = detectMessageLanguage(text);
+    setLastReplyLang(replyLang);
+
     const updatedHistory = [...messages, userMsg];
-    const aiText = await getGroqChatResponse(updatedHistory);
+    const aiText = await getGroqChatResponse(updatedHistory, replyLang);
 
     if (aiText) {
-      setMessages(prev => [...prev, { id: Date.now() + 1, text: aiText, sender: 'ai', sentiment }]);
+      setMessages(prev => [...prev, { id: Date.now() + 1, text: aiText, sender: 'ai', sentiment, lang: replyLang }]);
     } else {
-      setMessages(prev => [...prev, { id: Date.now() + 1, text: "I'm having trouble connecting to my thoughts right now. Could you please try again later? 💜", sender: 'ai', sentiment: 'Neutral' }]);
+      setMessages(prev => [...prev, { id: Date.now() + 1, text: CHAT_FALLBACK[replyLang] || CHAT_FALLBACK['en-IN'], sender: 'ai', sentiment: 'Neutral', lang: replyLang }]);
     }
     setIsTyping(false);
   };
 
   const clearChat = () => {
-    setMessages(INITIAL_MESSAGES);
+    setMessages(getInitialMessages(language));
     localStorage.removeItem('she360-chat');
   };
 
@@ -111,6 +115,13 @@ const MentalHealth = () => {
 
   const lastMood = moodHistory[moodHistory.length - 1];
   const lastMoodDef = MOODS.find(m => m.label === lastMood?.label);
+
+  const generatePlan = () => {
+    const plan = generateWeeklyWellnessPlan(moodHistory, healthReports, sleepHours, activityLevel);
+    setWellnessPlan(plan);
+  };
+
+  const todayIndex = (new Date().getDay() + 6) % 7;
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="page-container">
@@ -241,6 +252,58 @@ const MentalHealth = () => {
             </div>
           </div>
 
+          {/* Adaptive Wellness Plans */}
+          <div className="glass-card" style={{ padding: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Calendar size={16} color="var(--accent)" /> Adaptive Wellness Plan
+              </h3>
+              <button onClick={generatePlan} style={{ background: 'var(--primary-glow)', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '6px 10px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <RefreshCw size={12} /> {wellnessPlan ? 'Refresh' : 'Generate'}
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: '100px' }}>
+                <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Sleep (hrs)</label>
+                <input type="number" min="4" max="12" value={sleepHours} onChange={e => setSleepHours(Number(e.target.value))} style={{ width: '100%', marginTop: '2px', padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)', fontSize: '0.85rem' }} />
+              </div>
+              <div style={{ flex: 1, minWidth: '100px' }}>
+                <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Activity</label>
+                <select value={activityLevel} onChange={e => setActivityLevel(e.target.value)} style={{ width: '100%', marginTop: '2px', padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)', fontSize: '0.85rem' }}>
+                  <option value="low">Low</option>
+                  <option value="moderate">Moderate</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+            </div>
+
+            {wellnessPlan ? (
+              <div style={{ maxHeight: '220px', overflowY: 'auto' }}>
+                {wellnessPlan.map((day, di) => (
+                  <div key={di} style={{ padding: '8px 0', borderBottom: di < 6 ? '1px solid var(--glass-border)' : 'none', opacity: di === todayIndex ? 1 : 0.7 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 700, fontSize: '0.8rem', color: di === todayIndex ? 'var(--accent)' : 'var(--text-main)' }}>
+                        {day.day} {di === todayIndex ? '(Today)' : ''}
+                      </span>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{day.focus}</span>
+                    </div>
+                    {di === todayIndex && day.tasks.map((task, ti) => (
+                      <button key={ti} onClick={() => toggleWellnessTask(di, ti)} style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%', textAlign: 'left', padding: '4px 0', background: 'none', border: 'none', color: task.done ? 'var(--accent)' : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.75rem' }}>
+                        <CheckCircle2 size={12} color={task.done ? 'var(--accent)' : 'var(--glass-border)'} />
+                        {task.task}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', padding: '1rem' }}>
+                Generate a personalized weekly plan based on your mood, health, sleep & activity
+              </p>
+            )}
+          </div>
+
           {/* Mindful Reflection */}
           <div className="glass-card" style={{ padding: '1.5rem', background: 'linear-gradient(135deg, rgba(157,141,241,0.07), rgba(79,209,197,0.05))', flex: 1 }}>
             <Sparkles size={22} color="var(--primary)" style={{ marginBottom: '0.75rem' }} />
@@ -279,7 +342,7 @@ const MentalHealth = () => {
             </div>
             <div style={{ flex: 1 }}>
               <h3 style={{ fontSize: '1rem' }}>Mindful Assistant</h3>
-              <p style={{ fontSize: '0.7rem', color: 'var(--accent)' }}>● Online • AI-powered support</p>
+              <p style={{ fontSize: '0.7rem', color: 'var(--accent)' }}>● Online • Replies in your language ({lastReplyLang?.split('-')[0]?.toUpperCase() || 'EN'})</p>
             </div>
             <button
               onClick={clearChat}
@@ -331,7 +394,7 @@ const MentalHealth = () => {
 
           {/* Quick Prompts */}
           <div style={{ padding: '0.5rem 1.5rem 0', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-            {["I'm feeling anxious 😟", "I had a good day! 😊", "I need to talk 💬"].map(prompt => (
+            {["I'm feeling anxious 😟", "मुझे बात करनी है 💬", "எனக்கு பேச வேண்டும் 💬", "আজ ভালো লাগছে 😊"].map(prompt => (
               <button
                 key={prompt}
                 onClick={() => { setInputValue(prompt); inputRef.current?.focus(); }}
@@ -352,7 +415,7 @@ const MentalHealth = () => {
                 value={inputValue}
                 onChange={e => setInputValue(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-                placeholder="Share your thoughts... (Enter to send)"
+                placeholder={CHAT_PLACEHOLDERS[lastReplyLang] || CHAT_PLACEHOLDERS[language] || CHAT_PLACEHOLDERS['en-IN']}
                 rows={1}
                 style={{
                   flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)',

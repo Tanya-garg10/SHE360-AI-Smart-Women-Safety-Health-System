@@ -1,3 +1,4 @@
+// SHE360 AI — App entry point with global user state & accessibility context
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'

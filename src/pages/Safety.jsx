@@ -1,19 +1,24 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldAlert, MapPin, Mic, MicOff, Phone, Share2, AlertTriangle, Plus, Trash2, Navigation, CheckCircle2, X, PhoneCall, Check, Route, Volume2, VolumeX, Camera, Activity } from 'lucide-react';
+import { ShieldAlert, MapPin, Mic, MicOff, Phone, Share2, AlertTriangle, Plus, Trash2, Navigation, CheckCircle2, X, PhoneCall, Check, Route, Volume2, VolumeX, Camera, Activity, Brain, Building2, Calendar, WifiOff, Users } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 import { getUnsafeZones } from '../services/api';
+import { generateSafetyRiskModel, VOICE_KEYWORDS, UI_STRINGS, CONTACT_ROLES, suggestCommuteTime, getOfflineEmergencyData, isOnline } from '../utils/features';
 
 const Safety = () => {
-  const { contacts, setContacts } = useUser();
+  const { contacts, setContacts, updateContactRole, safetyProfile, setSafetyProfile, language, safeSpaces, addCheckIn, commuteEvents, setCommuteEvents, moodHistory } = useUser();
   const [isSOSActive, setIsSOSActive] = useState(false);
   const [countdown, setCountdown] = useState(5);
   const [voiceDetection, setVoiceDetection] = useState(false);
   const [location, setLocation] = useState(null);
   const [locationStatus, setLocationStatus] = useState('Click to get location');
   const [unsafeZones, setUnsafeZones] = useState([]);
-  const [newContact, setNewContact] = useState({ name: '', phone: '' });
+  const [newContact, setNewContact] = useState({ name: '', phone: '', role: 'family' });
   const [showContactForm, setShowContactForm] = useState(false);
+  const [showProfileForm, setShowProfileForm] = useState(false);
+  const [offlineMode, setOfflineMode] = useState(!isOnline());
+  const [newEvent, setNewEvent] = useState({ title: '', datetime: '', travelMins: 30, isLateNight: false });
+  const [showEventForm, setShowEventForm] = useState(false);
   const [sosStatus, setSosStatus] = useState('idle'); // idle | counting | sent
   const [shareStatus, setShareStatus] = useState('');
   const [fakeCallActive, setFakeCallActive] = useState(false);
@@ -31,7 +36,16 @@ const Safety = () => {
 
   useEffect(() => {
     getUnsafeZones().then(setUnsafeZones);
+    const handleOnline = () => setOfflineMode(false);
+    const handleOffline = () => setOfflineMode(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => { window.removeEventListener('online', handleOnline); window.removeEventListener('offline', handleOffline); };
   }, []);
+
+  const riskModel = useMemo(() => generateSafetyRiskModel(safetyProfile, moodHistory), [safetyProfile, moodHistory]);
+  const uiStrings = UI_STRINGS[language] || UI_STRINGS['en-IN'];
+  const offlineData = getOfflineEmergencyData();
 
   // SOS Countdown
   useEffect(() => {
@@ -152,14 +166,15 @@ const Safety = () => {
     const recognition = new SpeechRec();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = 'en-IN';
+    recognition.lang = language;
     recognition.onstart = () => setVoiceDetection(true);
     recognition.onresult = (e) => {
       const transcript = Array.from(e.results)
         .map(r => r[0].transcript)
         .join(' ')
         .toLowerCase();
-      if (transcript.includes('help') || transcript.includes('danger') || transcript.includes('bachao')) {
+      const keywords = VOICE_KEYWORDS[language] || VOICE_KEYWORDS['en-IN'];
+      if (keywords.some(kw => transcript.includes(kw.toLowerCase()))) {
         recognition.stop();
         setVoiceDetection(false);
         setIsSOSActive(true);
@@ -175,8 +190,16 @@ const Safety = () => {
   const handleAddContact = () => {
     if (newContact.name.trim() && newContact.phone.trim()) {
       setContacts([...contacts, { ...newContact }]);
-      setNewContact({ name: '', phone: '' });
+      setNewContact({ name: '', phone: '', role: 'family' });
       setShowContactForm(false);
+    }
+  };
+
+  const handleAddEvent = () => {
+    if (newEvent.title.trim() && newEvent.datetime) {
+      setCommuteEvents([...commuteEvents, { ...newEvent, id: Date.now() }]);
+      setNewEvent({ title: '', datetime: '', travelMins: 30, isLateNight: false });
+      setShowEventForm(false);
     }
   };
 
@@ -187,6 +210,7 @@ const Safety = () => {
   };
 
   const handleCheckIn = (method = 'whatsapp') => {
+    addCheckIn();
     setCheckInStatus(true);
     
     if (contacts.length > 0) {
@@ -274,6 +298,16 @@ const Safety = () => {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="page-container">
+      {/* Offline Emergency Banner */}
+      {offlineMode && (
+        <div className="glass-card" style={{ padding: '12px 16px', marginBottom: '1rem', background: 'rgba(255,75,145,0.1)', border: '1px solid var(--danger)', display: 'flex', alignItems: 'center', gap: '10px' }} role="alert">
+          <WifiOff size={18} color="var(--danger)" />
+          <div>
+            <p style={{ fontWeight: 700, fontSize: '0.85rem' }}>Offline Emergency Mode Active</p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>SOS, emergency contacts ({offlineData?.contacts?.length || 0}), and cached info available offline</p>
+          </div>
+        </div>
+      )}
 
       {/* Geo-Fencing Banner */}
       <AnimatePresence>
@@ -333,7 +367,7 @@ const Safety = () => {
             background: isSOSActive ? 'rgba(255,75,145,0.07)' : sosStatus === 'sent' ? 'rgba(79,209,197,0.07)' : 'var(--bg-card)',
           }}>
             <h2 style={{ marginBottom: '0.5rem' }}>
-              {sosStatus === 'sent' ? '✅ Alerts Sent!' : isSOSActive ? '⚠️ SOS Activating...' : 'Emergency SOS'}
+              {sosStatus === 'sent' ? '✅ Alerts Sent!' : isSOSActive ? '⚠️ SOS Activating...' : uiStrings.sos}
             </h2>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
               {isSOSActive ? `Sending in ${countdown}s — tap to cancel` : sosStatus === 'sent' ? `Alerted ${contacts.length} contacts` : 'Hold button to send SOS to your contacts'}
@@ -373,7 +407,7 @@ const Safety = () => {
                   animation: voiceDetection ? 'pulse-ring 1.5s infinite' : 'none',
                 }}
               >
-                {voiceDetection ? <><Mic size={16} /> Listening...</> : <><MicOff size={16} /> Voice Guard</>}
+                {voiceDetection ? <><Mic size={16} /> Listening...</> : <><MicOff size={16} /> {uiStrings.voiceGuard}</>}
               </button>
 
               <button
@@ -482,6 +516,16 @@ const Safety = () => {
                       onKeyDown={e => e.key === 'Enter' && handleAddContact()}
                       style={{ flex: '1 1 120px', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--glass-border)', background: 'rgba(255,255,255,0.05)', color: 'white', outline: 'none', fontFamily: 'inherit' }}
                     />
+                    <select
+                      value={newContact.role}
+                      onChange={e => setNewContact({ ...newContact, role: e.target.value })}
+                      style={{ padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--glass-border)', background: 'rgba(255,255,255,0.05)', color: 'white', outline: 'none', fontFamily: 'inherit' }}
+                      aria-label="Contact role"
+                    >
+                      {Object.entries(CONTACT_ROLES).map(([key, r]) => (
+                        <option key={key} value={key} style={{ background: '#1a1f35' }}>{r.label}</option>
+                      ))}
+                    </select>
                     <button onClick={handleAddContact} className="btn-primary" style={{ padding: '10px 16px', flexShrink: 0 }}>
                       Save
                     </button>
@@ -498,7 +542,19 @@ const Safety = () => {
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontWeight: 600, fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</p>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{c.phone}</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{c.phone}</p>
+                      <select
+                        value={c.role || 'family'}
+                        onChange={e => updateContactRole(i, e.target.value)}
+                        style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'transparent', color: CONTACT_ROLES[c.role || 'family']?.color || 'var(--text-muted)', outline: 'none' }}
+                        aria-label={`Role for ${c.name}`}
+                      >
+                        {Object.entries(CONTACT_ROLES).map(([key, r]) => (
+                          <option key={key} value={key} style={{ background: '#1a1f35' }}>{r.label}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                   <button onClick={() => callContact(c.phone)} title="Call" style={{ background: 'rgba(79,209,197,0.12)', border: 'none', color: 'var(--accent)', padding: '7px', borderRadius: '8px', cursor: 'pointer', display: 'flex' }}>
                     <Phone size={14} />
@@ -518,7 +574,7 @@ const Safety = () => {
             {/* Trusted Circle Integration: Safe Check-in */}
             {contacts.length > 0 && (
               <div style={{ marginTop: '1rem', borderTop: '1px solid var(--glass-border)', paddingTop: '1rem', textAlign: 'center' }}>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '10px', fontWeight: 600 }}>Send "I reached safe" via:</p>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '10px', fontWeight: 600 }}>Send "{uiStrings.safeCheckIn}" via:</p>
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <button
                     onClick={() => handleCheckIn('whatsapp')}
@@ -694,6 +750,136 @@ const Safety = () => {
               ))}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* ── AI Personal Safety Profile ── */}
+      <div className="glass-card" style={{ padding: '1.5rem', marginTop: '1.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem' }}>
+            <Brain size={18} color="var(--primary)" /> AI Personal Safety Profile
+          </h3>
+          <button onClick={() => setShowProfileForm(!showProfileForm)} style={{ background: 'var(--primary-glow)', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '6px 12px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700 }}>
+            {showProfileForm ? 'Close' : 'Edit Profile'}
+          </button>
+        </div>
+
+        {showProfileForm && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', marginBottom: '1rem', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px' }}>
+            <div>
+              <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Daily Routine</label>
+              <select value={safetyProfile.routine} onChange={e => setSafetyProfile({ ...safetyProfile, routine: e.target.value })} style={{ width: '100%', marginTop: '4px', padding: '8px', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)' }}>
+                <option value="office">Office Commute</option>
+                <option value="student">Student / Campus</option>
+                <option value="night-shift">Night Shift</option>
+                <option value="home">Mostly at Home</option>
+              </select>
+            </div>
+            {[
+              { key: 'travelAlone', label: 'Often travel alone' },
+              { key: 'lateNightCommute', label: 'Late night commute' },
+              { key: 'publicTransport', label: 'Uses public transport' },
+            ].map(item => (
+              <label key={item.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: 'pointer', padding: '8px' }}>
+                <input type="checkbox" checked={safetyProfile[item.key]} onChange={e => setSafetyProfile({ ...safetyProfile, [item.key]: e.target.checked })} />
+                {item.label}
+              </label>
+            ))}
+          </div>
+        )}
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
+          <div style={{ padding: '1rem', background: `${riskModel.levelColor}15`, borderRadius: '12px', border: `1px solid ${riskModel.levelColor}40` }}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Current Risk Level • {riskModel.timeContext}</p>
+            <h4 style={{ fontSize: '1.5rem', fontWeight: 800, color: riskModel.levelColor, marginTop: '4px' }}>{riskModel.level} ({riskModel.riskScore}%)</h4>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '8px' }}>{riskModel.safeRouteTip}</p>
+          </div>
+          <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '12px' }}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '8px' }}>Proactive Safety Suggestions</p>
+            {riskModel.suggestions.map((s, i) => (
+              <p key={i} style={{ fontSize: '0.8rem', padding: '6px 0', borderBottom: i < riskModel.suggestions.length - 1 ? '1px solid var(--glass-border)' : 'none' }}>💡 {s}</p>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Verified Safe Spaces & Smart Commute ── */}
+      <div className="grid-2col" style={{ marginTop: '1.5rem' }}>
+        <div className="glass-card" style={{ padding: '1.5rem' }}>
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem', marginBottom: '1rem' }}>
+            <Building2 size={18} color="var(--accent)" /> Verified Safe Spaces
+          </h3>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>Partner locations where you can seek help</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '280px', overflowY: 'auto' }}>
+            {safeSpaces.map(space => (
+              <div key={space.id} style={{ padding: '12px', background: 'rgba(79,209,197,0.06)', borderRadius: '12px', border: '1px solid rgba(79,209,197,0.2)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <p style={{ fontWeight: 700, fontSize: '0.85rem' }}>{space.name}</p>
+                    <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>{space.address}</p>
+                  </div>
+                  <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(79,209,197,0.15)', color: 'var(--accent)', fontWeight: 700 }}>✓ Verified</span>
+                </div>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '6px', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                  <span>{space.type}</span><span>•</span><span>{space.partner}</span><span>•</span><span>{space.hours}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="glass-card" style={{ padding: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem' }}>
+              <Calendar size={18} color="var(--primary)" /> Smart Commute Scheduler
+            </h3>
+            <button onClick={() => setShowEventForm(!showEventForm)} style={{ background: 'var(--primary-glow)', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '6px 12px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700 }}>
+              {showEventForm ? 'Cancel' : '+ Add Event'}
+            </button>
+          </div>
+
+          {showEventForm && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '1rem', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px' }}>
+              <input placeholder="Event title" value={newEvent.title} onChange={e => setNewEvent({ ...newEvent, title: e.target.value })} style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)' }} />
+              <input type="datetime-local" value={newEvent.datetime} onChange={e => setNewEvent({ ...newEvent, datetime: e.target.value })} style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-main)' }} />
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}>
+                <input type="checkbox" checked={newEvent.isLateNight} onChange={e => setNewEvent({ ...newEvent, isLateNight: e.target.checked })} /> Late night event
+              </label>
+              <button onClick={handleAddEvent} className="btn-primary" style={{ padding: '8px 16px', alignSelf: 'flex-start' }}>Save Event</button>
+            </div>
+          )}
+
+          {commuteEvents.length > 0 ? commuteEvents.map(event => {
+            const suggestion = suggestCommuteTime(event);
+            if (!suggestion.isUpcoming) return null;
+            return (
+              <div key={event.id} style={{ padding: '12px', background: 'rgba(157,141,241,0.08)', borderRadius: '12px', marginBottom: '8px', border: '1px solid var(--primary)' }}>
+                <p style={{ fontWeight: 700, fontSize: '0.9rem' }}>{suggestion.eventTitle}</p>
+                <p style={{ fontSize: '0.8rem', color: 'var(--accent)', marginTop: '4px' }}>🕐 Depart by: {suggestion.departBy} ({suggestion.minutesUntilDepart} min)</p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Route: {suggestion.safeRoute}</p>
+                <p style={{ fontSize: '0.75rem', marginTop: '4px' }}>💡 {suggestion.safetyTip}</p>
+              </div>
+            );
+          }) : (
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center', padding: '1.5rem' }}>Add calendar events to get safe departure times and routes</p>
+          )}
+        </div>
+      </div>
+
+      {/* ── Trusted Contact Roles Info ── */}
+      <div className="glass-card" style={{ padding: '1.5rem', marginTop: '1.5rem' }}>
+        <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem', marginBottom: '1rem' }}>
+          <Users size={18} color="var(--primary)" /> Trusted Contact Roles
+        </h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+          {Object.entries(CONTACT_ROLES).map(([key, role]) => (
+            <div key={key} style={{ padding: '12px', background: `${role.color}10`, borderRadius: '12px', border: `1px solid ${role.color}30` }}>
+              <p style={{ fontWeight: 700, fontSize: '0.85rem', color: role.color }}>{role.label}</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+                Access: {role.access.join(', ')}
+              </p>
+            </div>
+          ))}
         </div>
       </div>
 

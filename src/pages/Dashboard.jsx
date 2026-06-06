@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Shield, Activity, Heart, Zap, MapPin, TrendingUp, Bell, BarChart3, Users, BrainCircuit, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Shield, Activity, Heart, Zap, MapPin, TrendingUp, BarChart3, Users, Brain, Trophy, Lock, Globe, BrainCircuit, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 
 const cardVariant = {
@@ -98,9 +98,26 @@ const Dashboard = ({ onNavigate }) => {
         <div>
           <p style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)', letterSpacing: '1px' }}>SHE360 AI PLATFORM</p>
           <h3 style={{ fontSize: '1rem', fontWeight: 600, marginTop: '2px' }}>
-            AI-powered unified system — Safety · Health · Mental Wellness
+            AI-powered unified system — Safety · Health · Mental Wellness · Insights
           </h3>
         </div>
+      </motion.div>
+
+      {/* New Features Banner */}
+      <motion.div variants={cardVariant} custom={0.5} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', marginBottom: '2rem' }}>
+        {[
+          { icon: Brain, label: 'AI Safety Profile', color: 'var(--primary)' },
+          { icon: Globe, label: 'Multilingual Voice', color: 'var(--accent)' },
+          { icon: Trophy, label: 'Wellness Challenges', color: '#F6AD55' },
+          { icon: Lock, label: 'Encrypted Vault', color: 'var(--danger)' },
+          { icon: BarChart3, label: 'Analytics', color: 'var(--primary)' },
+          { icon: Shield, label: 'Offline SOS', color: 'var(--accent)' },
+        ].map((f, i) => (
+          <div key={i} className="glass-card" style={{ padding: '12px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+            <f.icon size={18} color={f.color} />
+            <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)' }}>{f.label}</span>
+          </div>
+        ))}
       </motion.div>
 
       {/* Stat Cards */}
