@@ -112,8 +112,6 @@ We engineered this platform to not just look good, but to act as a truly smart c
    ```
    The frontend works fully without the backend using local fallbacks.
 
----
-
 ## 📱 App Navigation
 
 | Tab | Description |
@@ -124,8 +122,6 @@ We engineered this platform to not just look good, but to act as a truly smart c
 | **Health Suite** | PCOS assessment wizard and history |
 | **MindSpace** | AI chat, wellness plans, mood tracking |
 | **Insights** | Analytics dashboard, challenges, achievements |
-
----
 
 ## 🌐 Supported Languages
 
