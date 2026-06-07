@@ -139,7 +139,7 @@ export const getUnsafeZones = async () => {
 
 export const getGroqChatResponse = async (chatHistory, replyLanguage = 'en-IN') => {
   try {
-    const apiKey = import.meta.env.VITE_GROQ_API_KEY;
+    const apiKey = import.meta.env.VITE_CEREBRAS_API_KEY;
     if (!apiKey) throw new Error("No Groq API Key found");
 
     const langName = LANGUAGE_NAMES[replyLanguage] || 'English';
@@ -159,9 +159,9 @@ Be warm like a trusted friend. Keep replies concise (2-3 sentences). Use emojis 
     });
 
     const res = await axios.post(
-      'https://api.groq.com/openai/v1/chat/completions',
+      'https://api.cerebras.ai/v1/chat/completions',
       {
-        model: 'llama-3.3-70b-versatile',
+        model: 'gpt-oss-120b',
         messages: messages,
         temperature: 0.7,
         max_tokens: 300,
