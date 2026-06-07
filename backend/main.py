@@ -7,6 +7,10 @@ import random
 
 app = FastAPI(title="SHE360 AI Prediction Engine")
 
+@app.get("/")
+async def read_root():
+    return {"message": "Welcome to SHE360 AI Backend! Access /docs for API documentation."}
+
 # Enable CORS
 app.add_middleware(
     CORSMiddleware,
